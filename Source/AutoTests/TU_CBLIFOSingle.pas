@@ -55,6 +55,12 @@ begin
     FCBLIFOSingle.Add(i);
   CheckEquals(C_CAPACITY, FCBLIFOSingle.Inserted);
   CheckTrue(FCBLIFOSingle.Full);
+  CheckEquals(4, FCBLIFOSingle[0], '0 element');
+  CheckEquals(3, FCBLIFOSingle[1], '1 element');
+  CheckEquals(2, FCBLIFOSingle[2], '2 element');
+  CheckEquals(1, FCBLIFOSingle[3], '3 element');
+  CheckEquals(0, FCBLIFOSingle[4], '4 element');
+
   CheckEquals(C_CAPACITY-1, FCBLIFOSingle.First, 'First element');
   CheckEquals(0, FCBLIFOSingle.Last, 'Last element');
 end;
