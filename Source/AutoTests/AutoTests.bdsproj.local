@@ -1,6 +1,6 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <BorlandProject>
-  <Transactions>
+	<Transactions>
     <Transaction>2017-01-20 14:14:23.000.pas,H:\MarketOps_github\initversion\Source\AutoTests\Unit1.pas=H:\MarketOps_github\initversion\Source\Shared\U_CircularBuffer.pas</Transaction>
     <Transaction>2017-01-20 15:32:40.171.pas,H:\MarketOps_github\initversion\Source\Shared\U_CircularBuffer.pas=H:\MarketOps_github\initversion\Source\Shared\U_CircularBufferLIFO.pas</Transaction>
     <Transaction>2017-01-20 15:34:54.893.pas,H:\MarketOps_github\initversion\Source\AutoTests\Unit1.pas=H:\MarketOps_github\initversion\Source\Shared\U_CBLIFOSingle.pas</Transaction>

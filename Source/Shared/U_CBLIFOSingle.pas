@@ -46,8 +46,8 @@ end;
 
 procedure TCBLIFOSingle.Add(el: single);
 begin
-  FData[FCurrPos]:=el;
   MoveToNextBufPosition;
+  FData[FCurrPos]:=el;
 end;
 
 function TCBLIFOSingle.First: single;
@@ -57,7 +57,7 @@ end;
 
 function TCBLIFOSingle.Last: single;
 begin
-  result:=FData[GetLastBufPosition];
+  result:=FData[FLastPos];
 end;
 
 end.
