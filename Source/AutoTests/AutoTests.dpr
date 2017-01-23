@@ -21,7 +21,11 @@ uses
   TextTestRunner,
   U_CircularBufferLIFO in '..\Shared\U_CircularBufferLIFO.pas',
   U_CBLIFOSingle in '..\Shared\U_CBLIFOSingle.pas',
-  TU_CBLIFOSingle in 'TU_CBLIFOSingle.pas';
+  TU_CBLIFOSingle in 'TU_CBLIFOSingle.pas',
+  U_SMA2 in '..\Shared\U_SMA2.pas',
+  TU_SMA2 in 'TU_SMA2.pas',
+  U_EMA2 in '..\Shared\U_EMA2.pas',
+  TU_EMA2 in 'TU_EMA2.pas';
 
 {$R *.RES}
 

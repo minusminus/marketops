@@ -5,5 +5,9 @@
     <Transaction>2017-01-20 15:32:40.171.pas,H:\MarketOps_github\initversion\Source\Shared\U_CircularBuffer.pas=H:\MarketOps_github\initversion\Source\Shared\U_CircularBufferLIFO.pas</Transaction>
     <Transaction>2017-01-20 15:34:54.893.pas,H:\MarketOps_github\initversion\Source\AutoTests\Unit1.pas=H:\MarketOps_github\initversion\Source\Shared\U_CBLIFOSingle.pas</Transaction>
     <Transaction>2017-01-20 15:49:31.669.pas,H:\MarketOps_github\initversion\Source\AutoTests\TU_CBLIFOSingle.pas=</Transaction>
+    <Transaction>2017-01-23 16:13:15.360.pas,H:\MarketOps_github\initversion\Source\AutoTests\Unit1.pas=H:\MarketOps_github\initversion\Source\Shared\U_SMA2.pas</Transaction>
+    <Transaction>2017-01-23 16:33:27.227.pas,H:\MarketOps_github\initversion\Source\AutoTests\Unit1.pas=H:\MarketOps_github\initversion\Source\Unit1.pas</Transaction>
+    <Transaction>2017-01-23 16:33:42.202.pas,H:\MarketOps_github\initversion\Source\Unit1.pas=</Transaction>
+    <Transaction>2017-01-23 16:34:06.798.pas,H:\MarketOps_github\initversion\Source\AutoTests\Unit1.pas=H:\MarketOps_github\initversion\Source\Shared\U_EMA2.pas</Transaction>
   </Transactions>
 </BorlandProject>
