@@ -11,7 +11,8 @@
 	<Default.Personality>  <Projects>
       <Projects Name="Montecarlo.exe">Montecarlo\Montecarlo.bdsproj</Projects>
       <Projects Name="AutoTests.exe">AutoTests\AutoTests.bdsproj</Projects>
-      <Projects Name="Targets">Montecarlo.exe AutoTests.exe</Projects>
+      <Projects Name="DataPump.exe">DataPump\DataPump.bdsproj</Projects>
+      <Projects Name="Targets">Montecarlo.exe AutoTests.exe DataPump.exe</Projects>
     </Projects>
     <Dependencies/>
   </Default.Personality>

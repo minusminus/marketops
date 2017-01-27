@@ -5,12 +5,12 @@
 			<Option Name="Personality">Delphi.Personality</Option>
 			<Option Name="ProjectType">VCLApplication</Option>
 			<Option Name="Version">1.0</Option>
-			<Option Name="GUID">{4BF0F77B-4C1D-43A5-B4CC-59A8EE81A69D}</Option>
+			<Option Name="GUID">{0019E768-ACC5-4BCE-B2CC-42123075D59A}</Option>
 		</Option>
 	</PersonalityInfo>
 	<Delphi.Personality>
 		<Source>
-			<Source Name="MainSource">Montecarlo.dpr</Source>
+			<Source Name="MainSource">DataPump.dpr</Source>
 		</Source>
 		<FileVersion>
 			<FileVersion Name="Version">7.0</FileVersion>
@@ -42,7 +42,7 @@
 			<Compiler Name="X">1</Compiler>
 			<Compiler Name="Y">1</Compiler>
 			<Compiler Name="Z">1</Compiler>
-			<Compiler Name="ShowHints">True</Compiler>
+			<Compiler Name="ShowHints">False</Compiler>
 			<Compiler Name="ShowWarnings">False</Compiler>
 			<Compiler Name="UnitAliases">WinTypes=Windows;WinProcs=Windows;DbiTypes=BDE;DbiProcs=BDE;DbiErrs=BDE;</Compiler>
 			<Compiler Name="NamespacePrefix"></Compiler>
@@ -124,13 +124,13 @@
 			<Directories Name="PackageDLLOutputDir"></Directories>
 			<Directories Name="PackageDCPOutputDir"></Directories>
 			<Directories Name="SearchPath"></Directories>
-			<Directories Name="Packages">vcl;rtl;vclx;indy;vclie;xmlrtl;inetdbbde;inet;inetdbxpress;dbrtl;soaprtl;dsnap;VclSmp;dbexpress;vcldb;dbxcds;inetdb;bdertl;vcldbx;teeui;teedb;tee;ibxpress;visualclx;visualdbclx;vclactnband;vclshlctrls;IntrawebDB_50_70;Intraweb_50_70;dclOfficeXP;Rave70VCL;Rave70CLX;RxDB7;RxBDE7;PKIECtrl7;PKIEDB7</Directories>
+			<Directories Name="Packages">vcl;rtl;vclx;indy;vclie;xmlrtl;inetdbbde;inet;inetdbxpress;dbrtl;soaprtl;dsnap;VclSmp;dbexpress;vcldb;dbxcds;inetdb;bdertl;vcldbx;teeui;teedb;tee;ibxpress;visualclx;visualdbclx;vclactnband;vclshlctrls;IntrawebDB_50_70;Intraweb_50_70;dclOfficeXP;Rave70VCL;Rave70CLX;RxDB7;RxBDE7</Directories>
 			<Directories Name="Conditionals"></Directories>
 			<Directories Name="DebugSourceDirs"></Directories>
 			<Directories Name="UsePackages">False</Directories>
 		</Directories>
 		<Parameters>
-			<Parameters Name="RunParams"></Parameters>
+			<Parameters Name="RunParams">datapumpauto</Parameters>
 			<Parameters Name="HostApplication"></Parameters>
 			<Parameters Name="Launcher"></Parameters>
 			<Parameters Name="UseLauncher">False</Parameters>
@@ -171,14 +171,14 @@
 			<VersionInfoKeys Name="ProductVersion">2.0</VersionInfoKeys>
 			<VersionInfoKeys Name="Comments"></VersionInfoKeys>
 		</VersionInfoKeys>  <Excluded_Packages>
-      <Excluded_Packages Name="i:\turbodelphi\Bin\dclib100.bpl">Borland InterBase Express Components</Excluded_Packages>
-      <Excluded_Packages Name="i:\turbodelphi\Bin\dclIntraweb_80_100.bpl">Intraweb 8.0 Design Package for Borland Development Studio 2006</Excluded_Packages>
-      <Excluded_Packages Name="i:\turbodelphi\Bin\dclIndyCore100.bpl">Indy 10 Core Design Time</Excluded_Packages>
-      <Excluded_Packages Name="i:\turbodelphi\Bin\dclsmp100.bpl">Borland Sample Components</Excluded_Packages>
-      <Excluded_Packages Name="i:\turbodelphi\Bin\dclIndyProtocols100.bpl">Indy 10 Protocols Design Time</Excluded_Packages>
-      <Excluded_Packages Name="i:\turbodelphi\Bin\dcltee100.bpl">TeeChart Components</Excluded_Packages>
-      <Excluded_Packages Name="C:\Program Files\RemObjects Software\Everwood\Bin\RemObjects_Everwood_D10.bpl">RemObjects Everwood for Delphi</Excluded_Packages>
-      <Excluded_Packages Name="I:\turbodelphi\Components\Pascal Script for Delphi\Dcu\D10\PascalScript_Core_D10.bpl">RemObjects Pascal Script - Core Package</Excluded_Packages>
+      <Excluded_Packages Name="h:\turbodelphi\Bin\dclib100.bpl">Borland InterBase Express Components</Excluded_Packages>
+      <Excluded_Packages Name="h:\turbodelphi\Bin\dclIntraweb_80_100.bpl">Intraweb 8.0 Design Package for Borland Development Studio 2006</Excluded_Packages>
+      <Excluded_Packages Name="h:\turbodelphi\Bin\dclIndyCore100.bpl">Indy 10 Core Design Time</Excluded_Packages>
+      <Excluded_Packages Name="h:\turbodelphi\Bin\dclsmp100.bpl">Borland Sample Components</Excluded_Packages>
+      <Excluded_Packages Name="h:\turbodelphi\Bin\dclIndyProtocols100.bpl">Indy 10 Protocols Design Time</Excluded_Packages>
+      <Excluded_Packages Name="h:\turbodelphi\Bin\dcltee100.bpl">TeeChart Components</Excluded_Packages>
+      <Excluded_Packages Name="C:\Program Files (x86)\RemObjects Software\Everwood\Bin\RemObjects_Everwood_D10.bpl">RemObjects Everwood for Delphi</Excluded_Packages>
+      <Excluded_Packages Name="H:\TurboDelphi\Components\Pascal Script for Delphi\Dcu\D10\PascalScript_Core_D10.bpl">RemObjects Pascal Script - Core Package</Excluded_Packages>
     </Excluded_Packages>
   </Delphi.Personality>
 </BorlandProject>
