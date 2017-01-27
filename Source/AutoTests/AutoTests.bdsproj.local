@@ -9,5 +9,6 @@
     <Transaction>2017-01-23 16:33:27.227.pas,H:\MarketOps_github\initversion\Source\AutoTests\Unit1.pas=H:\MarketOps_github\initversion\Source\Unit1.pas</Transaction>
     <Transaction>2017-01-23 16:33:42.202.pas,H:\MarketOps_github\initversion\Source\Unit1.pas=</Transaction>
     <Transaction>2017-01-23 16:34:06.798.pas,H:\MarketOps_github\initversion\Source\AutoTests\Unit1.pas=H:\MarketOps_github\initversion\Source\Shared\U_EMA2.pas</Transaction>
+    <Transaction>2017-01-27 10:07:22.469.pas,H:\MarketOps_github\initversion\Source\AutoTests\Unit1.pas=H:\MarketOps_github\initversion\Source\Shared\U_CircularIndexer.pas</Transaction>
   </Transactions>
 </BorlandProject>

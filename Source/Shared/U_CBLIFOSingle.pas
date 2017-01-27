@@ -47,17 +47,17 @@ end;
 procedure TCBLIFOSingle.Add(el: single);
 begin
   MoveToNextBufPosition;
-  FData[FCurrPos]:=el;
+  FData[FCurrPos.Pos]:=el;
 end;
 
 function TCBLIFOSingle.First: single;
 begin
-  result:=FData[FCurrPos];
+  result:=FData[FCurrPos.Pos];
 end;
 
 function TCBLIFOSingle.Last: single;
 begin
-  result:=FData[FLastPos];
+  result:=FData[FLastPos.Pos];
 end;
 
 end.

@@ -19,6 +19,8 @@ uses
   TestFramework,
   GUITestRunner,
   TextTestRunner,
+  U_CircularIndexer in '..\Shared\U_CircularIndexer.pas',
+  TU_CircularIndexer in 'TU_CircularIndexer.pas',
   U_CircularBufferLIFO in '..\Shared\U_CircularBufferLIFO.pas',
   U_CBLIFOSingle in '..\Shared\U_CBLIFOSingle.pas',
   TU_CBLIFOSingle in 'TU_CBLIFOSingle.pas',

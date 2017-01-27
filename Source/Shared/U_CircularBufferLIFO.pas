@@ -2,6 +2,9 @@ unit U_CircularBufferLIFO;
 
 interface
 
+uses
+  U_CircularIndexer;
+
 type
   {
     Circular buffer LIFO
@@ -13,17 +16,18 @@ type
     FCapacity: integer;
     FInserted: integer;
     FFull: boolean;
-    FCurrPos, FLastPos : integer;
+//    FCurrPos, FLastPos : integer;
+    FCurrPos, FLastPos : TCircularIndexer;
 
     //buffer position for specified index
     function GetBufPosition(AIndex : integer) : integer;
     //position of last element in buffer
     function GetLastBufPosition : integer;
     //moves current position to next in buffer
-    function MoveToNextBufPosition : integer;
+    procedure MoveToNextBufPosition;
 
     //increment position
-    procedure IncrementPosition(var i : integer);
+    procedure IncrementPosition(i : TCircularIndexer);
 
     //data storage initialization and finalization
     procedure InitializeStorage; virtual; abstract;
@@ -49,6 +53,8 @@ implementation
 constructor TCircularBuferLIFO.Create(ACapacity: integer);
 begin
   FCapacity:=ACapacity;
+  FCurrPos:=TCircularIndexer.Create(FCapacity);
+  FLastPos:=TCircularIndexer.Create(FCapacity);
   Reset;
   InitializeStorage;
 end;
@@ -56,24 +62,22 @@ end;
 destructor TCircularBuferLIFO.Destroy;
 begin
   FinalizeStorage;
+  FLastPos.Free;
+  FCurrPos.Free;
   inherited;
 end;
 
 procedure TCircularBuferLIFO.Reset;
 begin
-  FCurrPos:=0;
-//  FLastPos:=FCapacity - 1;
-  FLastPos:=-1;
+  FCurrPos.SetPosition(0);
+  FLastPos.SetPosition(-1);
   FInserted:=0;
   FFull:=false;
 end;
 
 function TCircularBuferLIFO.GetBufPosition(AIndex: integer): integer;
 begin
-  result:=FCurrPos - AIndex;
-//  if result>=FCapacity then
-////    result:=result mod FCapacity;
-//    result:=FCapacity - 1;
+  result:=FCurrPos.Pos - AIndex;
   if result<0 then
     result:=FCapacity + result;
 end;
@@ -83,22 +87,17 @@ begin
   result:=GetBufPosition(FCapacity - 1);
 end;
 
-procedure TCircularBuferLIFO.IncrementPosition(var i: integer);
+procedure TCircularBuferLIFO.IncrementPosition(i: TCircularIndexer);
 begin
-  i:=i + 1;
-  if i>=FCapacity then
-  begin
-    i:=0;
-    FFull:=true;
-  end;
+  i.Inc;
+  if i.LoopsCount>0 then FFull:=true;  
 end;
 
-function TCircularBuferLIFO.MoveToNextBufPosition: integer;
+procedure TCircularBuferLIFO.MoveToNextBufPosition;
 begin
   IncrementPosition(FCurrPos);
-  if FFull then IncrementPosition(FLastPos) else FLastPos:=0;
+  if FFull then IncrementPosition(FLastPos) else FLastPos.SetPosition(0);
   FInserted:=FInserted + 1;
-  result:=FCurrPos;
 end;
 
 end.
