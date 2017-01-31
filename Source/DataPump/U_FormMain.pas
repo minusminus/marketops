@@ -591,8 +591,8 @@ begin
   lblLPSpolka.Caption:=''; lblLPStan.Caption:='';
 
   BgndLoaderThr:=TBgndLoaderThread.Create;
-  BgndLoaderThr.FDestPath:=NormalDir(ExtractFilePath(ParamStr(0)))+'ATunzip\';
-  ForceDirectories(BgndLoaderThr.FDestPath);
+  BgndLoaderThr.DestPath:=NormalDir(ExtractFilePath(ParamStr(0)))+'ATunzip\';
+  ForceDirectories(BgndLoaderThr.DestPath);
 
   dm.OpenQuery(dm.qrySpolki, Q_SPOLKI);
 //  dm.OpenQuery(dm.qrySpolki, Q_TEST);
@@ -604,7 +604,7 @@ begin
       if dm.qrySpolki.fieldbyname('typ').AsInteger in [0,1] then  //spolki,indeksy
       begin
         fn:=dm.Settings[format('PathCiagle%d',[dm.qrySpolki.fieldbyname('typ').AsInteger])] + dm.qrySpolki.fieldbyname('nazwaakcji').AsString+'.zip';
-        BgndLoaderThr.FFiles.Add(dm.qrySpolki.fieldbyname('nazwaakcji').AsString+'.zip='+fn);
+        BgndLoaderThr.Files.Add(dm.qrySpolki.fieldbyname('nazwaakcji').AsString+'.zip='+fn);
       end;
       if dm.qrySpolki.fieldbyname('typ').AsInteger=2 then //kontrakty
       begin
@@ -623,13 +623,13 @@ begin
         if fd.series<>'' then
         begin
           fn:=dm.Settings['PathCiagle2'] + dm.qrySpolki.fieldbyname('nazwaakcji').AsString + fd.series + '.zip';
-          BgndLoaderThr.FFiles.Add(dm.qrySpolki.fieldbyname('nazwaakcji').AsString + fd.series + '.zip=' + fn);
+          BgndLoaderThr.Files.Add(dm.qrySpolki.fieldbyname('nazwaakcji').AsString + fd.series + '.zip=' + fn);
           while fd.expiration<currts do
           begin
             fd:=GetCurrFutData2(dm.qrySpolki.fieldbyname('id').AsInteger, fd.expiration+1);
             if fd.series='' then break;
             fn:=dm.Settings['PathCiagle2'] + dm.qrySpolki.fieldbyname('nazwaakcji').AsString + fd.series + '.zip';
-            BgndLoaderThr.FFiles.Add(dm.qrySpolki.fieldbyname('nazwaakcji').AsString + fd.series + '.zip=' + fn);
+            BgndLoaderThr.Files.Add(dm.qrySpolki.fieldbyname('nazwaakcji').AsString + fd.series + '.zip=' + fn);
           end;
         end;
       end;
@@ -650,7 +650,7 @@ begin
       begin
 //        lblLPSpolka.Caption:=format('%s (%d/%d)', [dm.qrySpolki.fieldbyname('nazwaspolki').AsString, dm.qrySpolki.RecNo, dm.qrySpolki.RecordCount]);
         lblLPSpolka.Caption:=format('(%d/%d) %s', [dm.qrySpolki.RecNo, dm.qrySpolki.RecordCount, dm.qrySpolki.fieldbyname('nazwaspolki').AsString]);
-        fn:=BgndLoaderThr.FDestPath+dm.qrySpolki.fieldbyname('nazwaakcji').AsString+'.zip';
+        fn:=BgndLoaderThr.DestPath+dm.qrySpolki.fieldbyname('nazwaakcji').AsString+'.zip';
         PrepareZIPFile( fn );
         UpdateData(0);
         DeleteFile( fn ); //usuwamy plik zip
@@ -674,7 +674,7 @@ begin
         begin
   //        lblLPSpolka.Caption:=format('%s%s (%d/%d)', [dm.qrySpolki.fieldbyname('nazwaakcji').AsString, fd.series, dm.qrySpolki.RecNo, dm.qrySpolki.RecordCount]);
           lblLPSpolka.Caption:=format('(%d/%d) %s%s', [dm.qrySpolki.RecNo, dm.qrySpolki.RecordCount, dm.qrySpolki.fieldbyname('nazwaakcji').AsString, fd.series]);
-          fn:=BgndLoaderThr.FDestPath + dm.qrySpolki.fieldbyname('nazwaakcji').AsString + fd.series + '.zip';
+          fn:=BgndLoaderThr.DestPath + dm.qrySpolki.fieldbyname('nazwaakcji').AsString + fd.series + '.zip';
           WaitForFile(fn);  //czekamy na plik z danymi
           UpdateDataFut0(fn, maxts, fd.expiration+1);
           maxts:=fd.expiration + 1;
@@ -685,7 +685,7 @@ begin
             if fd.series='' then break;            
   //          lblLPSpolka.Caption:=format('%s%s (%d/%d)', [dm.qrySpolki.fieldbyname('nazwaakcji').AsString, fd.series, dm.qrySpolki.RecNo, dm.qrySpolki.RecordCount]);
             lblLPSpolka.Caption:=format('(%d/%d) %s%s', [dm.qrySpolki.RecNo, dm.qrySpolki.RecordCount, dm.qrySpolki.fieldbyname('nazwaakcji').AsString, fd.series]);
-            fn:=BgndLoaderThr.FDestPath + dm.qrySpolki.fieldbyname('nazwaakcji').AsString + fd.series + '.zip';
+            fn:=BgndLoaderThr.DestPath + dm.qrySpolki.fieldbyname('nazwaakcji').AsString + fd.series + '.zip';
             WaitForFile(fn);  //czekamy na plik z danymi
             UpdateDataFut0(fn, maxts, fd.expiration+1);
             maxts:=fd.expiration + 1;
@@ -702,7 +702,7 @@ begin
     BgndLoaderThr.Terminate;
     BgndLoaderThr.WaitFor;
   end;
-  ClearDir(BgndLoaderThr.FDestPath, false); //czyscimy katalog downloadu
+  ClearDir(BgndLoaderThr.DestPath, false); //czyscimy katalog downloadu
   BgndLoaderThr.Free;
   BgndLoaderThr:=nil;
 
@@ -1444,8 +1444,8 @@ begin
   lblLPSpolka.Caption:=''; lblLPStan.Caption:='';
 
   BgndLoaderThr:=TBgndLoaderThread.Create;
-  BgndLoaderThr.FDestPath:=NormalDir(ExtractFilePath(ParamStr(0)))+'ATunzip\';
-  ForceDirectories(BgndLoaderThr.FDestPath);
+  BgndLoaderThr.DestPath:=NormalDir(ExtractFilePath(ParamStr(0)))+'ATunzip\';
+  ForceDirectories(BgndLoaderThr.DestPath);
 
 //  dm.OpenQuery(dm.qrySpolki, Q_SPOLKI);
   dm.OpenQuery(dm.qrySpolki, Q_TEST);
@@ -1457,7 +1457,7 @@ begin
       if dm.qrySpolki.fieldbyname('typ').AsInteger in [0,1] then  //spolki,indeksy
       begin
         fn:=dm.Settings[format('PathCiagle%d',[dm.qrySpolki.fieldbyname('typ').AsInteger])] + dm.qrySpolki.fieldbyname('nazwaakcji').AsString+'.zip';
-        BgndLoaderThr.FFiles.Add(dm.qrySpolki.fieldbyname('nazwaakcji').AsString+'.zip='+fn);
+        BgndLoaderThr.Files.Add(dm.qrySpolki.fieldbyname('nazwaakcji').AsString+'.zip='+fn);
       end;
       if dm.qrySpolki.fieldbyname('typ').AsInteger=2 then //kontrakty
       begin
@@ -1475,13 +1475,13 @@ begin
 //        fd:=GetCurrFutData(maxts);
         fd:=GetCurrFutData2(dm.qrySpolki.fieldbyname('id').AsInteger, maxts);
         fn:=dm.Settings['PathCiagle2'] + dm.qrySpolki.fieldbyname('nazwaakcji').AsString + fd.series + '.zip';
-        BgndLoaderThr.FFiles.Add(dm.qrySpolki.fieldbyname('nazwaakcji').AsString + fd.series + '.zip=' + fn);
+        BgndLoaderThr.Files.Add(dm.qrySpolki.fieldbyname('nazwaakcji').AsString + fd.series + '.zip=' + fn);
         while fd.expiration<currts do
         begin
 //          fd:=GetCurrFutData(fd.expiration+1);
           fd:=GetCurrFutData2(dm.qrySpolki.fieldbyname('id').AsInteger, fd.expiration+1);
           fn:=dm.Settings['PathCiagle2'] + dm.qrySpolki.fieldbyname('nazwaakcji').AsString + fd.series + '.zip';
-          BgndLoaderThr.FFiles.Add(dm.qrySpolki.fieldbyname('nazwaakcji').AsString + fd.series + '.zip=' + fn);
+          BgndLoaderThr.Files.Add(dm.qrySpolki.fieldbyname('nazwaakcji').AsString + fd.series + '.zip=' + fn);
         end;
       end;
     end;
@@ -1501,7 +1501,7 @@ begin
       begin
 //        lblLPSpolka.Caption:=format('%s (%d/%d)', [dm.qrySpolki.fieldbyname('nazwaspolki').AsString, dm.qrySpolki.RecNo, dm.qrySpolki.RecordCount]);
         lblLPSpolka.Caption:=format('(%d/%d) %s', [dm.qrySpolki.RecNo, dm.qrySpolki.RecordCount, dm.qrySpolki.fieldbyname('nazwaspolki').AsString]);
-        fn:=BgndLoaderThr.FDestPath+dm.qrySpolki.fieldbyname('nazwaakcji').AsString+'.zip';
+        fn:=BgndLoaderThr.DestPath+dm.qrySpolki.fieldbyname('nazwaakcji').AsString+'.zip';
         PrepareZIPFile( fn );
         UpdateData(0);
         DeleteFile( fn ); //usuwamy plik zip
@@ -1524,7 +1524,7 @@ begin
         fd:=GetCurrFutData2(dm.qrySpolki.fieldbyname('id').AsInteger, maxts);
 //        lblLPSpolka.Caption:=format('%s%s (%d/%d)', [dm.qrySpolki.fieldbyname('nazwaakcji').AsString, fd.series, dm.qrySpolki.RecNo, dm.qrySpolki.RecordCount]);
         lblLPSpolka.Caption:=format('(%d/%d) %s%s', [dm.qrySpolki.RecNo, dm.qrySpolki.RecordCount, dm.qrySpolki.fieldbyname('nazwaakcji').AsString, fd.series]);
-        fn:=BgndLoaderThr.FDestPath + dm.qrySpolki.fieldbyname('nazwaakcji').AsString + fd.series + '.zip';
+        fn:=BgndLoaderThr.DestPath + dm.qrySpolki.fieldbyname('nazwaakcji').AsString + fd.series + '.zip';
         WaitForFile(fn);  //czekamy na plik z danymi
         UpdateDataFut0(fn, maxts, fd.expiration+1);
         maxts:=fd.expiration + 1;
@@ -1535,7 +1535,7 @@ begin
           fd:=GetCurrFutData2(dm.qrySpolki.fieldbyname('id').AsInteger, fd.expiration+1);
 //          lblLPSpolka.Caption:=format('%s%s (%d/%d)', [dm.qrySpolki.fieldbyname('nazwaakcji').AsString, fd.series, dm.qrySpolki.RecNo, dm.qrySpolki.RecordCount]);
           lblLPSpolka.Caption:=format('(%d/%d) %s%s', [dm.qrySpolki.RecNo, dm.qrySpolki.RecordCount, dm.qrySpolki.fieldbyname('nazwaakcji').AsString, fd.series]);
-          fn:=BgndLoaderThr.FDestPath + dm.qrySpolki.fieldbyname('nazwaakcji').AsString + fd.series + '.zip';
+          fn:=BgndLoaderThr.DestPath + dm.qrySpolki.fieldbyname('nazwaakcji').AsString + fd.series + '.zip';
           WaitForFile(fn);  //czekamy na plik z danymi
           UpdateDataFut0(fn, maxts, fd.expiration+1);
           maxts:=fd.expiration + 1;
@@ -1551,7 +1551,7 @@ begin
     BgndLoaderThr.Terminate;
     BgndLoaderThr.WaitFor;
   end;
-  ClearDir(BgndLoaderThr.FDestPath, false); //czyscimy katalog downloadu
+  ClearDir(BgndLoaderThr.DestPath, false); //czyscimy katalog downloadu
   BgndLoaderThr.Free;
   BgndLoaderThr:=nil;
 

@@ -11,11 +11,15 @@ type
   }
   TBgndLoaderThread = class(TThread)
   private
+    FFiles : TStringList;
   protected
     procedure Execute; override;
   public
-    FFiles : TStringList; //file list in format: destination_file_path=http_path
-    FDestPath : string;
+    //destination path for downloaded files
+    DestPath : string;
+    //file list in format: destination_file_path=http_path
+    property Files : TStringList read FFiles;
+
     constructor Create; overload;
     destructor Destroy; override;
   end;
@@ -32,7 +36,7 @@ begin
   Priority:=tpLowest;
   FreeOnTerminate:=false;
   FFiles:=TStringList.Create;
-  FDestPath:='';
+  DestPath:='';
 end;
 
 destructor TBgndLoaderThread.Destroy;
@@ -50,8 +54,8 @@ begin
   begin
     if Terminated then break;    
     fn:=ExtractFileName( FFiles.Names[i] );
-    GetInetFile(FFiles.ValueFromIndex[i], FDestPath+fn+'.dl'); //pobranie pliku z tymczasowa nazwa
-    RenameFile(FDestPath+fn+'.dl', FDestPath+fn); //zmiana nazwy na docelowa
+    GetInetFile(FFiles.ValueFromIndex[i], DestPath+fn+'.dl'); //pobranie pliku z tymczasowa nazwa
+    RenameFile(DestPath+fn+'.dl', DestPath+fn); //zmiana nazwy na docelowa
   end;
 end;
 
