@@ -4,7 +4,8 @@ interface
 
 uses
   Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms,
-  Dialogs, StdCtrls, ExtCtrls, ComCtrls, ActnList, ZipMstr, u_bgndloaderthread;
+  Dialogs, StdCtrls, ExtCtrls, ComCtrls, ActnList, ZipMstr, u_bgndloaderthread,
+  U_FilesDownloader, U_DataInserter;
 
 const
   MSG_AUTOMATICPROCESS = WM_APP + 1000;
@@ -72,6 +73,8 @@ type
     Zip: TZipMaster;
     FBreakLoad : boolean;
     BgndLoaderThr : TBgndLoaderThread;
+    FFilesDownloader : TFilesDownloader;
+    FDataInserter : TDataInserter; 
 
     procedure LoadSpolki;
 
@@ -106,6 +109,10 @@ type
 
     //automatyczne wciagnie danych na podst DataPumpAuto.ini
     procedure AutomaticProcess;
+
+    //datainserter events
+    procedure OnInsertProgress(ALinesRead : integer; ATimeExpectedToFinish : TDateTime; ALongEvent : boolean; var VDoBreak : boolean);
+    procedure OnInsertFinished(ALinesRead : integer; ATimeExpectedToFinish : TDateTime; ALongEvent : boolean; var VDoBreak : boolean);
   protected
     procedure MsgAutomaticProcess( var Msg : TMessage ); message MSG_AUTOMATICPROCESS;
   public
@@ -116,13 +123,18 @@ var
 
 implementation
 
-uses U_DM, {$IFDEF VER150}fileutil, dateutil, rxstrutils,{$ELSE}rxfileutil, rxdateutil, rxstrutils,{$ENDIF} U_InetFile, DateUtils, math,
-  DB, U_DataProviderMP, inifiles;
+uses U_DM, rxfileutil, rxdateutil, rxstrutils,U_InetFile, DateUtils, math,
+  DB, U_DataProviderMP, inifiles, U_Consts;
 
 {$R *.dfm}
 
 procedure TFormMain.FormCreate(Sender: TObject);
 begin
+  FFilesDownloader:=TFilesDownloader.Create;
+  FDataInserter:=TDataInserter.Create;
+  FDataInserter.OnInsertProgress:=OnInsertProgress;
+  FDataInserter.OnInsertFinished:=OnInsertFinished;
+
   Zip:=TZipMaster.Create(nil);
   caption:=application.Title;
   pgcMain.ActivePageIndex:=0;
@@ -135,6 +147,8 @@ end;
 procedure TFormMain.FormDestroy(Sender: TObject);
 begin
   Zip.Free;
+  FDataInserter.Free;
+  FFilesDownloader.Free;
 end;
 
 procedure TFormMain.actDLDzienneExecute(Sender: TObject);
@@ -145,13 +159,15 @@ const
   Q_SPOLKI6 = 'select * from at_spolki where typ=6 order by typ, id';
 var
   typ : integer;
-  fn : string;
 
   procedure GetDzienneData( param, zipfn : string; query : string );
+  var
+    atunzip : string;
+    datafn : string;
   begin
-    fn:=NormalDir(ExtractFilePath(ParamStr(0)))+'ATunzip\'+zipfn;
-    GetInetFile(dm.Settings[param] + zipfn, fn);
-    PrepareZIPFile(fn);
+    atunzip:=NormalDir(ExtractFilePath(ParamStr(0)))+'ATunzip\';
+    FFilesDownloader.DownloadAndUnzip(dm.Settings[param] + zipfn, atunzip);
+
     dm.OpenQuery(dm.qrySpolki, query);
     dm.qrySpolki.First;
     while (not dm.qrySpolki.Eof) and (not FBreakLoad) do
@@ -159,55 +175,52 @@ var
       Application.ProcessMessages;
       if dm.qrySpolki.fieldbyname('aktywna').asinteger=1 then
       begin
-//        lblLPSpolka.Caption:=format('%s (%d/%d)', [dm.qrySpolki.fieldbyname('nazwaspolki').AsString, dm.qrySpolki.RecNo, dm.qrySpolki.RecordCount]);
+        datafn:=atunzip + dm.qrySpolki.fieldbyname('nazwaakcji2').AsString + '.mst';
         lblLPSpolka.Caption:=format('(%d/%d) %s', [dm.qrySpolki.RecNo, dm.qrySpolki.RecordCount, dm.qrySpolki.fieldbyname('nazwaspolki').AsString]);
-        UpdateData(1);
+//        UpdateData(1);
+        FDataInserter.InsertData(modataDaily, TMarketOpsStockType(dm.qrySpolki.fieldbyname('typ').AsInteger), dm.qrySpolki.fieldbyname('id').AsInteger, datafn);
       end;
       dm.qrySpolki.Next;
     end;
     dm.qrySpolki.Close;
-    ClearDir(NormalDir(ExtractFilePath(ParamStr(0)))+'ATunzip\', false); //czyscimy katalog downloadu
+    ClearDir(atunzip, false); //czyscimy katalog downloadu
   end;
 begin
   lblLPPostep.Caption:=''; lblLPCzasDoKoncaPakietu.Caption:='';
+  lblLPSpolka.Caption:=''; lblLPStan.Caption:='';
   mmUpdateLog.Clear;
   mmUpdateLog.Lines.Add('+++ Start: '+formatdatetime('yyyy-mm-dd hh:nn:ss', now));
   FBreakLoad:=false;
-  lblLPSpolka.Caption:=''; lblLPStan.Caption:='';
 
   ForceDirectories(NormalDir(ExtractFilePath(ParamStr(0)))+'ATunzip\');
 
   typ:=cbDaneDzienne.ItemIndex;
-
     //dane dzienne typ 0,1,2
-  if typ in [0,1] then
+  if (typ in [0,1]) and (not FBreakLoad) then
   begin
     mmUpdateLog.Lines.Add('+++ typ 0,1,2');
     GetDzienneData('PathDzienne0', 'mstall.zip', Q_SPOLKI012);
   end;
     //dane dzienne typ 4 (fio)
-  if typ in [0,2] then
+  if (typ in [0,2]) and (not FBreakLoad) then
   begin
     mmUpdateLog.Lines.Add('+++ typ 4');
-    if not FBreakLoad then
-      GetDzienneData('PathDzienne4', 'mstfun.zip', Q_SPOLKI4);
+    GetDzienneData('PathDzienne4', 'mstfun.zip', Q_SPOLKI4);
   end;
     //dane dzienne typ 5 (waluty nbp)
-  if typ in [0,3] then
+  if (typ in [0,3]) and (not FBreakLoad) then
   begin
     mmUpdateLog.Lines.Add('+++ typ 5');
-    if not FBreakLoad then
-      GetDzienneData('PathDzienne5', 'mstnbp.zip', Q_SPOLKI5);
+    GetDzienneData('PathDzienne5', 'mstnbp.zip', Q_SPOLKI5);
   end;
     //dane dzienne typ 6 (fx)
-  if typ in [0,4] then
+  if (typ in [0,4]) and (not FBreakLoad) then
   begin
     mmUpdateLog.Lines.Add('+++ typ 6');
-    if not FBreakLoad then
-      GetDzienneData('PathDzienne6', 'mstfx.zip', Q_SPOLKI6);
+    GetDzienneData('PathDzienne6', 'mstfx.zip', Q_SPOLKI6);
   end;
 
-  UpdateStartTS;  //pole at_spolki.startts
+  FDataInserter.UpdateAllStartTS;
   mmUpdateLog.Lines.Add('+++ Stop: '+formatdatetime('yyyy-mm-dd hh:nn:ss', now));
   MessageDlg('Pobieranie danych dziennych zakoñczone', mtInformation, [mbOK], 0);
 end;
@@ -967,56 +980,24 @@ begin
   AutomaticProcess;
 end;
 
-//function TFormMain.GetCurrFutData(TS: TDateTime): TFutData;
-//var
-//  expdates : array[0..4] of tdatetime;
-//  expseries : array[0..4] of string;
-//  dt : tdatetime;
-//  d,m,y, expm : integer;
-//  i : integer;
-//begin
-//  ts:=floor(ts);
-//  y:=ExtractYear(ts);
-//  m:=ExtractMonth(ts);
-//  d:=ExtractDay(ts);
-//
-//  expseries[0]:='H';
-//  expseries[1]:='M';
-//  expseries[2]:='U';
-//  expseries[3]:='Z';
-//  expseries[4]:='H';
-//    //ustalenie dat wygasania kontraktow (w 3 piatek miesiaca)
-//  dt:=StrToDate(format('%.4d-03-01',[y]));
-//  i:=DayOfTheWeek(dt);
-//  if i<5 then i:=5-i else i:=7-(i-5);
-//  expdates[0]:=StrToDate(format('%.4d-03-%.2d',[y,1+i+14]));
-//  dt:=StrToDate(format('%.4d-06-01',[y]));
-//  i:=DayOfTheWeek(dt);
-//  if i<5 then i:=5-i else i:=7-(i-5);
-//  expdates[1]:=StrToDate(format('%.4d-06-%.2d',[y,1+i+14]));
-//  dt:=StrToDate(format('%.4d-09-01',[y]));
-//  i:=DayOfTheWeek(dt);
-//  if i<5 then i:=5-i else i:=7-(i-5);
-//  expdates[2]:=StrToDate(format('%.4d-09-%.2d',[y,1+i+14]));
-//  dt:=StrToDate(format('%.4d-12-01',[y]));
-//  i:=DayOfTheWeek(dt);
-//  if i<5 then i:=5-i else i:=7-(i-5);
-//  expdates[3]:=StrToDate(format('%.4d-12-%.2d',[y,1+i+14]));
-//  dt:=StrToDate(format('%.4d-03-01',[y+1]));
-//  i:=DayOfTheWeek(dt);
-//  if i<5 then i:=5-i else i:=7-(i-5);
-//  expdates[4]:=StrToDate(format('%.4d-03-%.2d',[y+1,1+i+14]));
-//
-//    //data wygasniecia dla biezacej serii dla podanej daty
-//  result.expiration:=expdates[0];
-//  result.series:=format('%s%.1d',[expseries[0], ExtractYear(expdates[0]) mod 10]);
-//  for i:=1 to 4 do
-//    if ts>expdates[i-1] then
-//    begin
-//      result.expiration:=expdates[i];
-//      result.series:=format('%s%.1d',[expseries[i], ExtractYear(expdates[i]) mod 10]);
-//    end;
-//end;
+procedure TFormMain.OnInsertFinished(ALinesRead: integer;
+  ATimeExpectedToFinish: TDateTime; ALongEvent: boolean; var VDoBreak: boolean);
+begin
+  mmUpdateLog.Lines.Add(format('%s: %d', [dm.qrySpolki.fieldbyname('nazwaakcji').AsString, ALinesRead]));
+end;
+
+procedure TFormMain.OnInsertProgress(ALinesRead: integer;
+  ATimeExpectedToFinish: TDateTime; ALongEvent: boolean; var VDoBreak: boolean);
+begin
+  if not ALongEvent then
+  begin
+    lblLPPostep.Caption:=format('%d', [ALinesRead]);
+    Application.ProcessMessages;
+  end
+  else
+    lblLPCzasDoKoncaPakietu.Caption:=FormatDateTime('hh:nn:ss', ATimeExpectedToFinish);
+  VDoBreak:=FBreakLoad;
+end;
 
 function TFormMain.GetCurrFutData2(FutID: integer; TS: TDateTime): TFutData;
 const

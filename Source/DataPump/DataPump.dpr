@@ -7,7 +7,9 @@ uses
   U_InetFile in 'U_InetFile.pas',
   U_BgndLoaderThread in 'U_BgndLoaderThread.pas',
   U_DataProviderMP in 'U_DataProviderMP.pas',
-  U_Consts in '..\Shared\U_Consts.pas';
+  U_Consts in '..\Shared\U_Consts.pas',
+  U_FilesDownloader in 'U_FilesDownloader.pas',
+  U_DataInserter in 'U_DataInserter.pas';
 
 {$R *.res}
 

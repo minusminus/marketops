@@ -14,6 +14,13 @@ type
   }
   TMarketOpsStockType = (motGPWStock, motGPWIndex, motGPWIndexFuture, motPLInvestmentFund, motNBPCurrency, motBossaFX);
 
+  {
+    MarketOps downloaded data type
+    modataTicks (0) - ticks data
+    modataDaily (1) - end of day data
+  }
+  TMarketOpsDataType = (modataTicks, modataDaily);
+
 implementation
 
 end.

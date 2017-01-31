@@ -4,5 +4,8 @@
     <Transaction>2008-04-22 19:16:10.485.pas,I:\code\gielda\AT2\U_DataProviderMP.pas=</Transaction>
     <Transaction>2017-01-27 16:07:55.669.bdsproj,H:\MarketOps_github\initversion\Source\DataPump\ATDataPump.bdsproj=H:\MarketOps_github\initversion\Source\DataPump\DataPump.bdsproj</Transaction>
     <Transaction>2017-01-31 12:43:15.729.pas,H:\MarketOps_github\initversion\Source\DataPump\Unit1.pas=H:\MarketOps_github\initversion\Source\Shared\U_Consts.pas</Transaction>
+    <Transaction>2017-01-31 14:30:00.609.pas,H:\MarketOps_github\initversion\Source\DataPump\Unit1.pas=H:\MarketOps_github\initversion\Source\DataPump\U_BossaFilesDownloader.pas</Transaction>
+    <Transaction>2017-01-31 14:30:23.571.pas,H:\MarketOps_github\initversion\Source\DataPump\U_BossaFilesDownloader.pas=H:\MarketOps_github\initversion\Source\DataPump\U_FilesDownloader.pas</Transaction>
+    <Transaction>2017-01-31 15:09:05.391.pas,H:\MarketOps_github\initversion\Source\DataPump\Unit1.pas=H:\MarketOps_github\initversion\Source\DataPump\U_DataInserter.pas</Transaction>
   </Transactions>
 </BorlandProject>

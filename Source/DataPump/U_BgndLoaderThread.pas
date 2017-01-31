@@ -6,6 +6,8 @@ uses
   Classes;
 
 type
+  TOnBgndDownloadedFile = procedure() of object;
+
   {
     Thread for async downloading set of files
   }
