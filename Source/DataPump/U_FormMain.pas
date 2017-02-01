@@ -74,7 +74,8 @@ type
     FBreakLoad : boolean;
     BgndLoaderThr : TBgndLoaderThread;
     FFilesDownloader : TFilesDownloader;
-    FDataInserter : TDataInserter; 
+    FDataInserter : TDataInserter;
+    FUnzipDir : string; 
 
     procedure LoadSpolki;
 
@@ -90,8 +91,6 @@ type
     **}
     procedure UpdateData( typ : integer );
     procedure UpdateDataFut0( datafn : string; startts, expdate : tdatetime );
-    {** procedura ustawiajaca pole at_spolki.startts *}
-    procedure UpdateStartTS;
     {** procedura przygotowujaca plik do przetwarzania - czeka na pobranie i rozpakowuje *}
     procedure PrepareZIPFile( fn : string );
     procedure WaitForFile( fn : string );
@@ -135,6 +134,7 @@ begin
   FDataInserter:=TDataInserter.Create;
   FDataInserter.OnInsertProgress:=OnInsertProgress;
   FDataInserter.OnInsertFinished:=OnInsertFinished;
+  FUnzipDir:=NormalDir(ExtractFilePath(ParamStr(0)))+'ATunzip\';
 
   Zip:=TZipMaster.Create(nil);
   caption:=application.Title;
@@ -164,12 +164,10 @@ var
 
   procedure GetDzienneData( param, zipfn : string; query : string );
   var
-    atunzip : string;
     datafn : string;
   begin
-    atunzip:=NormalDir(ExtractFilePath(ParamStr(0)))+'ATunzip\';
     UpdateStanCaption('Pobieranie...');
-    FFilesDownloader.DownloadAndUnzip(dm.Settings[param], zipfn, atunzip);
+    FFilesDownloader.DownloadAndUnzip(dm.Settings[param], zipfn, FUnzipDir);
 
     UpdateStanCaption('Przetwarzanie...');
     dm.OpenQuery(dm.qrySpolki, query);
@@ -179,7 +177,7 @@ var
       Application.ProcessMessages;
       if dm.qrySpolki.fieldbyname('aktywna').asinteger=1 then
       begin
-        datafn:=atunzip + dm.qrySpolki.fieldbyname('nazwaakcji2').AsString + '.mst';
+        datafn:=FUnzipDir + dm.qrySpolki.fieldbyname('nazwaakcji2').AsString + '.mst';
         lblLPSpolka.Caption:=format('(%d/%d) %s [%d]', [dm.qrySpolki.RecNo, dm.qrySpolki.RecordCount, dm.qrySpolki.fieldbyname('nazwaspolki').AsString, dm.qrySpolki.fieldbyname('id').AsInteger]);
 //        UpdateData(1);
         FDataInserter.InsertData(modataDaily, TMarketOpsStockType(dm.qrySpolki.fieldbyname('typ').AsInteger), dm.qrySpolki.fieldbyname('id').AsInteger, datafn);
@@ -187,7 +185,8 @@ var
       dm.qrySpolki.Next;
     end;
     dm.qrySpolki.Close;
-    ClearDir(atunzip, false); //czyscimy katalog downloadu
+    ClearDir(FUnzipDir, false); //czyscimy katalog downloadu
+    UpdateStanCaption('');
   end;
 begin
   lblLPPostep.Caption:=''; lblLPCzasDoKoncaPakietu.Caption:='';
@@ -196,8 +195,7 @@ begin
   mmUpdateLog.Lines.Add('+++ Start: '+formatdatetime('yyyy-mm-dd hh:nn:ss', now));
   FBreakLoad:=false;
 
-  ForceDirectories(NormalDir(ExtractFilePath(ParamStr(0)))+'ATunzip\');
-
+  ForceDirectories(FUnzipDir);
   typ:=cbDaneDzienne.ItemIndex;
     //dane dzienne typ 0,1,2
   if (typ in [0,1]) and (not FBreakLoad) then
@@ -233,27 +231,6 @@ procedure TFormMain.UpdateStanCaption(AMsg: string);
 begin
   lblLPStan.Caption:=AMsg;
   Application.ProcessMessages;
-end;
-
-procedure TFormMain.UpdateStartTS;
-const
-  Q_QRY ='update at_spolki '+
-          'set startts=t.ts '+
-          'from '+
-          '( '+
-          'select fk_id_spolki, min(ts) as "ts" '+
-          'from at_dzienne%d '+
-          'where fk_id_spolki in (select id from at_spolki where startts is null) '+
-          'group by fk_id_spolki '+
-          ') t '+
-          'where id=t.fk_id_spolki';
-begin
-  dm.ExecSql(format(Q_QRY, [0]));
-  dm.ExecSql(format(Q_QRY, [1]));
-  dm.ExecSql(format(Q_QRY, [2]));
-  dm.ExecSql(format(Q_QRY, [4]));
-  dm.ExecSql(format(Q_QRY, [5]));
-  dm.ExecSql(format(Q_QRY, [6]));
 end;
 
 procedure TFormMain.WaitForFile(fn: string);
@@ -729,7 +706,7 @@ begin
   BgndLoaderThr.Free;
   BgndLoaderThr:=nil;
 
-  UpdateStartTS;  //pole at_spolki.startts
+//  UpdateStartTS;  //pole at_spolki.startts
   mmUpdateLog.Lines.Add('+++ Stop: '+formatdatetime('yyyy-mm-dd hh:nn:ss', now));
   MessageDlg('Pobieranie danych ci¹g³ych zakoñczone', mtInformation, [mbOK], 0);
 end;
