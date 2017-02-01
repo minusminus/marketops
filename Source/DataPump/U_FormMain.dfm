@@ -111,15 +111,15 @@ object FormMain: TFormMain
           Caption = 'lblLPPostep'
         end
         object Label3: TLabel
-          Left = 152
-          Top = 8
+          Left = 168
+          Top = 6
           Width = 86
           Height = 13
           Caption = 'Do ko'#324'ca pakietu:'
         end
         object lblLPCzasDoKoncaPakietu: TLabel
-          Left = 240
-          Top = 8
+          Left = 256
+          Top = 6
           Width = 121
           Height = 13
           Caption = 'lblLPCzasDoKoncaPakietu'
@@ -127,13 +127,14 @@ object FormMain: TFormMain
         object lblLPSpolka: TLabel
           Left = 8
           Top = 32
-          Width = 52
+          Width = 154
           Height = 13
+          AutoSize = False
           Caption = 'lblLPSpolka'
         end
         object lblLPStan: TLabel
-          Left = 152
-          Top = 32
+          Left = 168
+          Top = 30
           Width = 43
           Height = 13
           Caption = 'lblLPStan'
@@ -153,10 +154,6 @@ object FormMain: TFormMain
     object tabPodzial: TTabSheet
       Caption = 'Generowanie danych intra i week+'
       ImageIndex = 1
-      ExplicitLeft = 0
-      ExplicitTop = 0
-      ExplicitWidth = 0
-      ExplicitHeight = 269
       object Panel3: TPanel
         Left = 0
         Top = 0
@@ -200,7 +197,7 @@ object FormMain: TFormMain
           Width = 185
           Height = 21
           Style = csDropDownList
-          ItemHeight = 0
+          ItemHeight = 13
           ItemIndex = 0
           TabOrder = 0
           Text = 'Tygodniowe'
@@ -224,7 +221,7 @@ object FormMain: TFormMain
           Width = 185
           Height = 21
           Style = csDropDownList
-          ItemHeight = 0
+          ItemHeight = 13
           TabOrder = 1
         end
         object Button4: TButton
@@ -251,7 +248,7 @@ object FormMain: TFormMain
           Width = 185
           Height = 21
           Style = csDropDownList
-          ItemHeight = 0
+          ItemHeight = 13
           TabOrder = 4
           Items.Strings = (
             'Wybrane'
@@ -273,7 +270,6 @@ object FormMain: TFormMain
         BevelOuter = bvNone
         Caption = 'Panel4'
         TabOrder = 1
-        ExplicitHeight = 124
         object mmLogGen: TMemo
           Left = 0
           Top = 0
@@ -282,17 +278,12 @@ object FormMain: TFormMain
           Align = alClient
           ScrollBars = ssBoth
           TabOrder = 0
-          ExplicitHeight = 124
         end
       end
     end
     object tabMP: TTabSheet
       Caption = 'MarketProfile'
       ImageIndex = 2
-      ExplicitLeft = 0
-      ExplicitTop = 0
-      ExplicitWidth = 0
-      ExplicitHeight = 269
       object Panel5: TPanel
         Left = 0
         Top = 0
@@ -322,7 +313,7 @@ object FormMain: TFormMain
           Width = 185
           Height = 21
           Style = csDropDownList
-          ItemHeight = 0
+          ItemHeight = 13
           ItemIndex = 0
           TabOrder = 0
           Text = '30 min'
@@ -335,7 +326,7 @@ object FormMain: TFormMain
           Width = 185
           Height = 21
           Style = csDropDownList
-          ItemHeight = 0
+          ItemHeight = 13
           TabOrder = 1
         end
         object Button6: TButton
@@ -355,7 +346,6 @@ object FormMain: TFormMain
         Align = alClient
         ScrollBars = ssBoth
         TabOrder = 1
-        ExplicitHeight = 156
       end
     end
   end

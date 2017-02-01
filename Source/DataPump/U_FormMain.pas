@@ -110,6 +110,7 @@ type
     //automatyczne wciagnie danych na podst DataPumpAuto.ini
     procedure AutomaticProcess;
 
+    procedure UpdateStanCaption(AMsg : string);
     //datainserter events
     procedure OnInsertProgress(ALinesRead : integer; ATimeExpectedToFinish : TDateTime; ALongEvent : boolean; var VDoBreak : boolean);
     procedure OnInsertFinished(ALinesRead : integer; ATimeExpectedToFinish : TDateTime; ALongEvent : boolean; var VDoBreak : boolean);
@@ -154,6 +155,7 @@ end;
 procedure TFormMain.actDLDzienneExecute(Sender: TObject);
 const
   Q_SPOLKI012 = 'select * from at_spolki where typ in (0,1,2) order by typ, id';
+//  Q_SPOLKI012 = 'select * from at_spolki where typ in (0,1,2) and id=288 order by typ, id';
   Q_SPOLKI4 = 'select * from at_spolki where typ=4 order by typ, id';
   Q_SPOLKI5 = 'select * from at_spolki where typ=5 order by typ, id';
   Q_SPOLKI6 = 'select * from at_spolki where typ=6 order by typ, id';
@@ -166,8 +168,10 @@ var
     datafn : string;
   begin
     atunzip:=NormalDir(ExtractFilePath(ParamStr(0)))+'ATunzip\';
-    FFilesDownloader.DownloadAndUnzip(dm.Settings[param] + zipfn, atunzip);
+    UpdateStanCaption('Pobieranie...');
+    FFilesDownloader.DownloadAndUnzip(dm.Settings[param], zipfn, atunzip);
 
+    UpdateStanCaption('Przetwarzanie...');
     dm.OpenQuery(dm.qrySpolki, query);
     dm.qrySpolki.First;
     while (not dm.qrySpolki.Eof) and (not FBreakLoad) do
@@ -176,7 +180,7 @@ var
       if dm.qrySpolki.fieldbyname('aktywna').asinteger=1 then
       begin
         datafn:=atunzip + dm.qrySpolki.fieldbyname('nazwaakcji2').AsString + '.mst';
-        lblLPSpolka.Caption:=format('(%d/%d) %s', [dm.qrySpolki.RecNo, dm.qrySpolki.RecordCount, dm.qrySpolki.fieldbyname('nazwaspolki').AsString]);
+        lblLPSpolka.Caption:=format('(%d/%d) %s [%d]', [dm.qrySpolki.RecNo, dm.qrySpolki.RecordCount, dm.qrySpolki.fieldbyname('nazwaspolki').AsString, dm.qrySpolki.fieldbyname('id').AsInteger]);
 //        UpdateData(1);
         FDataInserter.InsertData(modataDaily, TMarketOpsStockType(dm.qrySpolki.fieldbyname('typ').AsInteger), dm.qrySpolki.fieldbyname('id').AsInteger, datafn);
       end;
@@ -223,6 +227,12 @@ begin
   FDataInserter.UpdateAllStartTS;
   mmUpdateLog.Lines.Add('+++ Stop: '+formatdatetime('yyyy-mm-dd hh:nn:ss', now));
   MessageDlg('Pobieranie danych dziennych zakoñczone', mtInformation, [mbOK], 0);
+end;
+
+procedure TFormMain.UpdateStanCaption(AMsg: string);
+begin
+  lblLPStan.Caption:=AMsg;
+  Application.ProcessMessages;
 end;
 
 procedure TFormMain.UpdateStartTS;
@@ -983,7 +993,7 @@ end;
 procedure TFormMain.OnInsertFinished(ALinesRead: integer;
   ATimeExpectedToFinish: TDateTime; ALongEvent: boolean; var VDoBreak: boolean);
 begin
-  mmUpdateLog.Lines.Add(format('%s: %d', [dm.qrySpolki.fieldbyname('nazwaakcji').AsString, ALinesRead]));
+  mmUpdateLog.Lines.Add(format('%s [%d]: %d', [dm.qrySpolki.fieldbyname('nazwaakcji').AsString, dm.qrySpolki.fieldbyname('id').AsInteger, ALinesRead]));
 end;
 
 procedure TFormMain.OnInsertProgress(ALinesRead: integer;

@@ -58,6 +58,7 @@ function TDataInserter.FindTSInFile(ADataType: TMarketOpsDataType;
 var
   dts : string;
   sl : TStringList;
+  firstlineread : boolean;
 begin
   result:=false;
   if AMaxTS<=0 then exit;
@@ -67,14 +68,21 @@ begin
   end;
   sl:=TStringList.Create;
   try
+    firstlineread:=false;
     while not Eof(f) do
     begin
       readln(f, VLastLine);
       VBRead:=VBRead + length(VLastLine);
+      if VLastLine[1]='<' then  //mst maja naglowek <>,<>,<> prn nie maja
+      begin
+        inc(VLinesRead);
+        Continue;
+      end;
+      firstlineread:=true;
       sl.CommaText:=VLastLine;
       if (ADataType=modataDaily) then //inicjalizacja kursu odniesienia
       begin
-        if VLinesRead=0 then VRefCourse:=sl[2]  //otwarcie pierwszego dnia notowan
+        if firstlineread then VRefCourse:=sl[2]  //otwarcie pierwszego dnia notowan
         else VRefCourse:=sl[5]; //zamkniecie biezacego
       end;
       inc(VLinesRead);
@@ -249,6 +257,7 @@ begin
             PrepareIntVal(sl[6]), VRefCourse
           ]);
     end;
+    dm.ExecSql(qry);
     if (ADataType=modataDaily) then
       VRefCourse:=sl[5];
   finally
@@ -271,15 +280,15 @@ const
 var
   i : integer;
 begin
-  for i := Ord(low(TMarketOpsStockType)) to Ord(high(TMarketOpsStockType)) do
-    dm.ExecSql(Q_QRY, [i]);
+//  for i := Ord(low(TMarketOpsStockType)) to Ord(high(TMarketOpsStockType)) do
+//    dm.ExecSql(Q_QRY, [i]);
 
-//  dm.ExecSql(Q_QRY, [0]);
-//  dm.ExecSql(Q_QRY, [1]);
-//  dm.ExecSql(Q_QRY, [2]);
-//  dm.ExecSql(Q_QRY, [4]);
-//  dm.ExecSql(Q_QRY, [5]);
-//  dm.ExecSql(Q_QRY, [6]);
+  dm.ExecSql(Q_QRY, [0]);
+  dm.ExecSql(Q_QRY, [1]);
+  dm.ExecSql(Q_QRY, [2]);
+  dm.ExecSql(Q_QRY, [4]);
+  dm.ExecSql(Q_QRY, [5]);
+  dm.ExecSql(Q_QRY, [6]);
 end;
 
 end.

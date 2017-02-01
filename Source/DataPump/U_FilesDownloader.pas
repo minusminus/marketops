@@ -8,7 +8,6 @@ uses
 type
   TFilesDownloader = class
   private
-    FZip : TZipMaster;
     FBgndLoader : TBgndLoaderThread;
 
     procedure TerminateAndFreeBgndLoaderThread;
@@ -22,7 +21,7 @@ type
       AURLPath - url of file to download
       ADestPath - destination folder, where file will be downloaded and unzipped
     }
-    function DownloadAndUnzip(AURLPath, ADestPath : string) : boolean;
+    function DownloadAndUnzip(AURLPath, AFileName, ADestPath : string) : boolean;
   end;
 
 implementation
@@ -34,38 +33,45 @@ uses
 
 constructor TFilesDownloader.Create;
 begin
-  FZip:=TZipMaster.Create(nil);
   FBgndLoader:=nil;
 end;
 
 destructor TFilesDownloader.Destroy;
 begin
   TerminateAndFreeBgndLoaderThread;
-  FZip.Free;
   inherited;
 end;
 
-function TFilesDownloader.DownloadAndUnzip(AURLPath,
+function TFilesDownloader.DownloadAndUnzip(AURLPath, AFileName, 
   ADestPath: string): boolean;
 var
   destfn : string;
 begin
   ADestPath:=normaldir(ADestPath);
   ForceDirectories(ADestPath);
-  destfn:=ADestPath + ExtractFileName(AURLPath);
-  GetInetFile(AURLPath, destfn);
+//  destfn:=ADestPath + ExtractFileName(AURLPath);
+  destfn:=ADestPath + AFileName;
+  GetInetFile(AURLPath + AFileName, destfn);
   result:=PrepareZIPFile(destfn, ADestPath);
 end;
 
 function TFilesDownloader.PrepareZIPFile(AZIPFN, ADestPath: string) : boolean;
 const
   C_ERRORZIPFILESIZE = 300; //minimal accepted correct zip file size
+var
+  FZip : TZipMaster;
 begin
   result:=false;
   if GetFileSize(AZIPFN) < C_ERRORZIPFILESIZE then exit;
-  FZip.ZipFileName:=AZIPFN;
-  FZip.ExtrBaseDir:=NormalDir(ADestPath);
-  FZip.Extract;
+  //have to create it every time, FZip created in constructor generates "nothing to do" exceptions and messages
+  FZip:=TZipMaster.Create(nil);
+  try
+    FZip.ZipFileName:=AZIPFN;
+    FZip.ExtrBaseDir:=NormalDir(ADestPath);
+    FZip.Extract;
+  finally
+    FZip.Free;
+  end;
   result:=true;
 end;
 
