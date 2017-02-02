@@ -3,16 +3,24 @@ unit U_FilesDownloader;
 interface
 
 uses
-  ZipMstr, U_BgndLoaderThread;
+  ZipMstr, U_BgndLoaderThread, Classes;
 
 type
+  TOnCheckDownloadBreak = procedure(var VBreakLoad : boolean) of object;
+
   TFilesDownloader = class
   private
     FBgndLoader : TBgndLoaderThread;
+    FDLAsyncObjs : TList;
+    FOnCheckDownloadBreak: TOnCheckDownloadBreak;
 
     procedure TerminateAndFreeBgndLoaderThread;
     function PrepareZIPFile(AZIPFN, ADestPath : string) : boolean;
+    procedure ClearDLAsyncObjs;
+    procedure OnBgndDownloadedFile(AAsyncFileID : integer);
   public
+    property OnCheckDownloadBreak : TOnCheckDownloadBreak read FOnCheckDownloadBreak write FOnCheckDownloadBreak;
+
     constructor Create;
     destructor Destroy; override;
 
@@ -22,6 +30,12 @@ type
       ADestPath - destination folder, where file will be downloaded and unzipped
     }
     function DownloadAndUnzip(AURLPath, AFileName, ADestPath : string) : boolean;
+
+    //async downaloading
+    procedure DownloadAsync(AURLPath, AFileName, ADestPath : string);
+    procedure StartAsyncDownload;
+    procedure StopAsyncDownload;
+    function WaitAndUnzipAsyncFile(AFileName : string) : boolean;
   end;
 
 implementation
@@ -34,15 +48,27 @@ uses
 constructor TFilesDownloader.Create;
 begin
   FBgndLoader:=nil;
+  FDLAsyncObjs:=TList.Create;
 end;
 
 destructor TFilesDownloader.Destroy;
 begin
   TerminateAndFreeBgndLoaderThread;
+  ClearDLAsyncObjs;
+  FDLAsyncObjs.Free;
   inherited;
 end;
 
-function TFilesDownloader.DownloadAndUnzip(AURLPath, AFileName, 
+procedure TFilesDownloader.ClearDLAsyncObjs;
+var
+  i : integer;
+begin
+  for i := 0 to FDLAsyncObjs.Count - 1 do
+    TDownloadAsyncFile(FDLAsyncObjs[i]).Free;
+  FDLAsyncObjs.Clear;
+end;
+
+function TFilesDownloader.DownloadAndUnzip(AURLPath, AFileName,
   ADestPath: string): boolean;
 var
   destfn : string;
@@ -81,6 +107,77 @@ begin
   if not FBgndLoader.Suspended then FBgndLoader.Terminate;
   if not FBgndLoader.Suspended then FBgndLoader.WaitFor;
   FreeAndNil(FBgndLoader);
+end;
+
+function TFilesDownloader.WaitAndUnzipAsyncFile(AFileName: string): boolean;
+var
+  i : integer;
+  o : TDownloadAsyncFile;
+  b : boolean;
+begin
+  result:=false;
+  o:=nil;
+  for i := 0 to FDLAsyncObjs.Count - 1 do
+    if TDownloadAsyncFile(FDLAsyncObjs[i]).FileName=AFileName then
+    begin
+      o:=TDownloadAsyncFile(FDLAsyncObjs[i]);
+      break;
+    end;
+  if o=nil then exit;
+
+  while not o.Downloaded do
+  begin
+    if Assigned(FOnCheckDownloadBreak) then
+    begin
+      b:=false;
+      FOnCheckDownloadBreak(b);
+      if b then exit;
+    end;
+    sleep(1000);
+  end;
+  result:=PrepareZIPFile(o.DestPath + o.FileName, o.DestPath);
+end;
+
+procedure TFilesDownloader.DownloadAsync(AURLPath, AFileName,
+  ADestPath: string);
+var
+  o : TDownloadAsyncFile;
+begin
+  o:=TDownloadAsyncFile.Create;
+  o.URLPath:=AURLPath;
+  o.DestPath:=ADestPath;
+  o.FileName:=AFileName;
+  o.Downloaded:=false;
+  FDLAsyncObjs.Add(o);
+end;
+
+procedure TFilesDownloader.OnBgndDownloadedFile(AAsyncFileID: integer);
+var
+  i : integer;
+begin
+  for i := 0 to FDLAsyncObjs.Count - 1 do
+    if TDownloadAsyncFile(FDLAsyncObjs[i]).ID=AAsyncFileID then
+    begin
+      TDownloadAsyncFile(FDLAsyncObjs[i]).Downloaded:=true;
+      break;
+    end;
+end;
+
+procedure TFilesDownloader.StartAsyncDownload;
+var
+  i : integer;
+begin
+  TerminateAndFreeBgndLoaderThread;
+  FBgndLoader:=TBgndLoaderThread.Create;
+  FBgndLoader.OnBgndDownloadedFile:=OnBgndDownloadedFile;
+  for i := 0 to FDLAsyncObjs.Count - 1 do
+    FBgndLoader.AddFileToDownload(TDownloadAsyncFile(FDLAsyncObjs[i]));
+  FBgndLoader.Resume;
+end;
+
+procedure TFilesDownloader.StopAsyncDownload;
+begin
+  TerminateAndFreeBgndLoaderThread;
 end;
 
 end.

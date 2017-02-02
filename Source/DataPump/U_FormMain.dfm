@@ -60,16 +60,6 @@ object FormMain: TFormMain
           Action = actDLBreak
           TabOrder = 2
         end
-        object Button7: TButton
-          Left = 368
-          Top = 8
-          Width = 75
-          Height = 25
-          Caption = 'intra fw20ws'
-          TabOrder = 3
-          Visible = False
-          OnClick = Button7Click
-        end
         object cbDaneDzienne: TComboBox
           Left = 168
           Top = 50
@@ -78,7 +68,7 @@ object FormMain: TFormMain
           Style = csDropDownList
           ItemHeight = 13
           ItemIndex = 0
-          TabOrder = 4
+          TabOrder = 3
           Text = 'Wszystkie'
           Items.Strings = (
             'Wszystkie'
