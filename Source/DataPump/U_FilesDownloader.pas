@@ -168,6 +168,7 @@ var
   i : integer;
 begin
   TerminateAndFreeBgndLoaderThread;
+  if FDLAsyncObjs.Count=0 then exit;  
   FBgndLoader:=TBgndLoaderThread.Create;
   FBgndLoader.OnBgndDownloadedFile:=OnBgndDownloadedFile;
   for i := 0 to FDLAsyncObjs.Count - 1 do

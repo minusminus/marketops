@@ -7,7 +7,7 @@ uses
 
 type
   //data inserting progress
-  TOnInsertProgress = procedure(ALinesRead : integer; ATimeExpectedToFinish : TDateTime; ALongEvent : boolean; var VDoBreak : boolean) of object;
+  TOnInsertProgress = procedure(ALinesRead : integer; ATimeExpectedToFinish : TDateTime; ALinesPerSec : double; ALongEvent : boolean; var VDoBreak : boolean) of object;
 
   {
     imports data from files to database
@@ -134,8 +134,8 @@ var
   lastline, refcourse : string;
   bytesread, linesread : integer;
   tlast, tcurr : double;
-  ilast : integer;
-  timexepectedtofinish : double;
+  ilast, ilastline : integer;
+  timexepectedtofinish, linespersec : double;
   dobreak : boolean;
 begin
   ClearErr;
@@ -157,22 +157,21 @@ begin
       if linetoupdate then
         ProcessLine(ADataType, AStockType, AStockID, lastline, refcourse, true);
 
-      tlast:=now; ilast:=bytesread;
+      tlast:=now; ilast:=bytesread; ilastline:=linesread;
       while not EOF(f) do
       begin
-        //progress event
-        if linesread and 7 = 7 then
-          if assigned(FOnInsertProgress) then FOnInsertProgress(linesread, timexepectedtofinish, false, dobreak);
+        //progress events
+        if linesread and $F = $F then
+          if assigned(FOnInsertProgress) then FOnInsertProgress(linesread, 0, 0, false, dobreak);
         if linesread and 127 = 127 then
         begin
           tcurr:=now;
           if bytesread>ilast then
           begin
             timexepectedtofinish:=(fsize-bytesread)*(tcurr-tlast)/(bytesread-ilast);
-            if assigned(FOnInsertProgress) then FOnInsertProgress(linesread, timexepectedtofinish, true, dobreak);
+            linespersec:=(linesread-ilastline)/((tcurr-tlast)/(1.0/24.0/60.0/60.0));
+            if assigned(FOnInsertProgress) then FOnInsertProgress(linesread, timexepectedtofinish, linespersec, true, dobreak);
           end;
-          tlast:=tcurr;
-          ilast:=bytesread;
         end;
         if dobreak then break;
         //reading data
@@ -181,7 +180,7 @@ begin
         inc(linesread);
         ProcessLine(ADataType, AStockType, AStockID, lastline, refcourse, false);
       end;
-      if assigned(FOnInsertFinished) then FOnInsertFinished(linesread, 0, false, dobreak);
+      if assigned(FOnInsertFinished) then FOnInsertFinished(linesread, 0, 0, false, dobreak);
       result:=true;
     except
       on e : Exception do
