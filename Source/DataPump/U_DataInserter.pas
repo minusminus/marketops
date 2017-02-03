@@ -44,7 +44,8 @@ type
 
 implementation
 
-uses U_DM, SysUtils, rxfileutil, Classes, rxstrutils;
+uses U_DM, SysUtils, rxfileutil, Classes, rxstrutils,
+  U_DataInserterProgressCalc;
 
 { TDataInserter }
 
@@ -133,10 +134,8 @@ var
   linetoupdate : boolean;
   lastline, refcourse : string;
   bytesread, linesread : integer;
-  tlast, tcurr : double;
-  ilast, ilastline : integer;
-  timexepectedtofinish, linespersec : double;
   dobreak : boolean;
+  pcalc : TDataInserterProgressCalc;
 begin
   ClearErr;
   result:=false;
@@ -148,6 +147,7 @@ begin
   fsize:=GetFileSize(ASrcFN);
 
   maxts:=GetMaxTS(ADataType, AStockType, AStockID);
+  pcalc:=TDataInserterProgressCalc.Create;
   AssignFile(f, ASrcFN);
   try
     try
@@ -157,22 +157,15 @@ begin
       if linetoupdate then
         ProcessLine(ADataType, AStockType, AStockID, lastline, refcourse, true);
 
-      tlast:=now; ilast:=bytesread; ilastline:=linesread;
+      pcalc.Init(bytesread, linesread, fsize);
       while not EOF(f) do
       begin
         //progress events
         if linesread and $F = $F then
           if assigned(FOnInsertProgress) then FOnInsertProgress(linesread, 0, 0, false, dobreak);
         if linesread and 127 = 127 then
-        begin
-          tcurr:=now;
-          if bytesread>ilast then
-          begin
-            timexepectedtofinish:=(fsize-bytesread)*(tcurr-tlast)/(bytesread-ilast);
-            linespersec:=(linesread-ilastline)/((tcurr-tlast)/(1.0/24.0/60.0/60.0));
-            if assigned(FOnInsertProgress) then FOnInsertProgress(linesread, timexepectedtofinish, linespersec, true, dobreak);
-          end;
-        end;
+          if pcalc.Calculate(bytesread, linesread) then
+            if assigned(FOnInsertProgress) then FOnInsertProgress(linesread, pcalc.TimeRemaining, pcalc.LinesPerSec, true, dobreak);
         if dobreak then break;
         //reading data
         Readln(f, lastline);
@@ -188,6 +181,7 @@ begin
     end;
   finally
     CloseFile(f);
+    pcalc.Free;
   end;
 end;
 

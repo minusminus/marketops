@@ -10,7 +10,8 @@ uses
   U_Consts in '..\Shared\U_Consts.pas',
   U_FilesDownloader in 'U_FilesDownloader.pas',
   U_DataInserter in 'U_DataInserter.pas',
-  U_SeriesInfo in 'U_SeriesInfo.pas';
+  U_SeriesInfo in 'U_SeriesInfo.pas',
+  U_DataInserterProgressCalc in 'U_DataInserterProgressCalc.pas';
 
 {$R *.res}
 
