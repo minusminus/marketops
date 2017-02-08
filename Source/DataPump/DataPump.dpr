@@ -11,7 +11,8 @@ uses
   U_FilesDownloader in 'U_FilesDownloader.pas',
   U_DataInserter in 'U_DataInserter.pas',
   U_SeriesInfo in 'U_SeriesInfo.pas',
-  U_DataInserterProgressCalc in 'U_DataInserterProgressCalc.pas';
+  U_DataInserterProgressCalc in 'U_DataInserterProgressCalc.pas',
+  U_Utils in '..\Shared\U_Utils.pas';
 
 {$R *.res}
 

@@ -3,3 +3,6 @@
 *.exe
 *.ini
 *.dll
+*.zip
+*.mst
+*.prn

@@ -3,7 +3,7 @@ unit U_DataInserter;
 interface
 
 uses
-  U_Consts;
+  U_Consts, Classes;
 
 type
   //data inserting progress
@@ -19,16 +19,15 @@ type
     FOnInsertProgress: TOnInsertProgress;
     FOnInsertFinished: TOnInsertProgress;
 
-    function PrepareIntVal( val : string ) : string;
-    function PrepareFloatVal( val : double ) : string;
-
     procedure ClearErr;
     //gets maxts for current stock from database (last inserted data)
     function GetMaxTS(ADataType : TMarketOpsDataType; AStockType : TMarketOpsStockType; AStockID : integer) : double;
+    //checks if borderts is reached
+    function CheckBorderTS(ADataType : TMarketOpsDataType; ABorderTS : TDateTime; AData : TStringList) : boolean;
     //finds specified ts in current file, if found returns specified line and sets file to next line
-    function FindTSInFile(ADataType : TMarketOpsDataType; AMaxTS : double; var VLineToUpdate : boolean; var VLastLine, VRefCourse : string; var VBRead, VLinesRead : integer) : boolean;
+    function FindTSInFile(ADataType : TMarketOpsDataType; AMaxTS : double; var VLineToUpdate : boolean; var VLastLine, VRefCourse : string; var VBRead, VLinesRead : integer; ABorderTS : TDateTime; var VBorderReached : boolean) : boolean;
     //inserts data do database
-    procedure ProcessLine(ADataType : TMarketOpsDataType; AStockType : TMarketOpsStockType; AStockID : integer; ALine : string; var VRefCourse : string; ADoUpdate : boolean);
+    procedure ProcessLine(ADataType : TMarketOpsDataType; AStockType : TMarketOpsStockType; AStockID : integer; ALine : string; var VRefCourse : string; ADoUpdate : boolean; ABorderTS : TDateTime; var VBorderReached : boolean);
   public
     property ErrMsg : string read FErrMsg;
 
@@ -36,7 +35,7 @@ type
     property OnInsertFinished : TOnInsertProgress read FOnInsertFinished write FOnInsertFinished;
 
     //inserts data from spcified file for specified stock
-    function InsertData(ADataType : TMarketOpsDataType; AStockType : TMarketOpsStockType; AStockID : integer; ASrcFN : string) : boolean;
+    function InsertData(ADataType : TMarketOpsDataType; AStockType : TMarketOpsStockType; AStockID : integer; ASrcFN : string; ABorderTS : TDateTime = 0) : boolean;
 
     //updates startts for all stocks
     procedure UpdateAllStartTS;
@@ -44,10 +43,17 @@ type
 
 implementation
 
-uses U_DM, SysUtils, rxfileutil, Classes, rxstrutils,
-  U_DataInserterProgressCalc;
+uses U_DM, SysUtils, rxfileutil, U_DataInserterProgressCalc, U_Utils;
 
 { TDataInserter }
+
+function TDataInserter.CheckBorderTS(ADataType: TMarketOpsDataType;
+  ABorderTS: TDateTime; AData: TStringList): boolean;
+begin
+  result:= (ABorderTS <> 0) and
+           (( (ADataType=modataTicks) and ((AData[2]+','+AData[3]) = formatdatetime('yyyymmdd,hhnnss', ABorderTS)) ) or
+           ( (ADataType=modataDaily) and (AData[1] = formatdatetime('yyyymmdd', ABorderTS)) ));
+end;
 
 procedure TDataInserter.ClearErr;
 begin
@@ -55,7 +61,8 @@ begin
 end;
 
 function TDataInserter.FindTSInFile(ADataType: TMarketOpsDataType;
-  AMaxTS: double; var VLineToUpdate : boolean; var VLastLine, VRefCourse: string; var VBRead, VLinesRead : integer): boolean;
+  AMaxTS: double; var VLineToUpdate : boolean; var VLastLine, VRefCourse: string; var VBRead, VLinesRead : integer;
+  ABorderTS : TDateTime; var VBorderReached : boolean): boolean;
 var
   dts : string;
   sl : TStringList;
@@ -89,6 +96,7 @@ begin
       inc(VLinesRead);
       if pos(dts, VLastLine)>0 then //identyczna data znaleziona
       begin
+        VBorderReached:=CheckBorderTS(ADataType, ABorderTS, sl);
 //        VLineToUpdate:=(ADataType=modataDaily);
         VLineToUpdate:=false;
         result:=true;
@@ -103,6 +111,7 @@ begin
       if ( (ADataType=modataTicks) and ((sl[2]+','+sl[3]) > dts) ) or
          ( (ADataType=modataDaily) and (sl[1] > dts) ) then  //data znaleziona jest wieksza od maxts -> dodajemy nowa linie i reszte pliku
       begin
+        VBorderReached:=CheckBorderTS(ADataType, ABorderTS, sl);
         VLineToUpdate:=false;
         result:=true;
         break;
@@ -127,11 +136,11 @@ begin
 end;
 
 function TDataInserter.InsertData(ADataType: TMarketOpsDataType;
-  AStockType: TMarketOpsStockType; AStockID: integer; ASrcFN: string): boolean;
+  AStockType: TMarketOpsStockType; AStockID: integer; ASrcFN: string; ABorderTS : TDateTime): boolean;
 var
   fsize : integer;
   maxts : double;
-  linetoupdate : boolean;
+  linetoupdate, borderreached : boolean;
   lastline, refcourse : string;
   bytesread, linesread : integer;
   dobreak : boolean;
@@ -153,9 +162,14 @@ begin
     try
       Reset(f);
 
-      if not FindTSInFile(ADataType, maxts, linetoupdate, lastline, refcourse, bytesread, linesread) then exit;
+      if not FindTSInFile(ADataType, maxts, linetoupdate, lastline, refcourse, bytesread, linesread, ABorderTS, borderreached) then exit;
+      if borderreached then
+      begin
+        result:=true;
+        exit;
+      end;
       if linetoupdate then
-        ProcessLine(ADataType, AStockType, AStockID, lastline, refcourse, true);
+        ProcessLine(ADataType, AStockType, AStockID, lastline, refcourse, true, ABorderTS, borderreached);
 
       pcalc.Init(bytesread, linesread, fsize);
       while not EOF(f) do
@@ -171,7 +185,8 @@ begin
         Readln(f, lastline);
         bytesread:=bytesread + length(lastline);
         inc(linesread);
-        ProcessLine(ADataType, AStockType, AStockID, lastline, refcourse, false);
+        ProcessLine(ADataType, AStockType, AStockID, lastline, refcourse, false, ABorderTS, borderreached);
+        if borderreached then break;
       end;
       if assigned(FOnInsertFinished) then FOnInsertFinished(linesread, 0, 0, false, dobreak);
       result:=true;
@@ -185,20 +200,9 @@ begin
   end;
 end;
 
-function TDataInserter.PrepareFloatVal(val: double): string;
-begin
-  result:=replacestr(format('%.2f',[val]), ',', '.');
-end;
-
-function TDataInserter.PrepareIntVal(val: string): string;
-begin
-  result:=val;
-  if trim(val)='' then result:='0';
-end;
-
 procedure TDataInserter.ProcessLine(ADataType: TMarketOpsDataType;
   AStockType: TMarketOpsStockType; AStockID: integer; ALine : string; var VRefCourse: string;
-  ADoUpdate: boolean);
+  ADoUpdate: boolean; ABorderTS : TDateTime; var VBorderReached : boolean);
 const
   Q_ADDCIAGLE = 'insert into at_ciagle%d(fk_id_spolki, ts, x, open, high, low, close, volume, oi) values(%d, ''%s'', %s, %s,%s,%s,%s, %s, %s);';
   Q_ADDDZIENNE = 'insert into at_dzienne%d(fk_id_spolki, ts, open, high, low, close, volume, refcourse) values(%d, ''%s'', %s,%s,%s,%s, %s, %s );';
@@ -222,6 +226,8 @@ begin
       s:=sl[3];
       dts:=dts+' '+s[1]+s[2]+':'+s[3]+s[4]+':'+s[5]+s[6];
     end;
+    VBorderReached:=CheckBorderTS(ADataType, ABorderTS, sl);
+    if VBorderReached then exit;    
 
     case ADataType of
       modataTicks:

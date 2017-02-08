@@ -11,11 +11,6 @@ const
   MSG_AUTOMATICPROCESS = WM_APP + 1000;
 
 type
-  TFutData = record
-    series : string;
-    expiration : tdatetime;
-  end;
-  
   TFormMain = class(TForm)
     Panel1: TPanel;
     mmUpdateLog: TMemo;
@@ -77,18 +72,6 @@ type
 
     procedure LoadSpolki;
 
-    {** informacje o aktulanej serii kontraktow dla podanej daty *}
-//    function GetCurrFutData( TS : TDateTime ) : TFutData;
-    function GetCurrFutData2( FutID : integer; TS : TDateTime ) : TFutData;
-
-    //procedury wciagania danych z bossa.pl
-    procedure UpdateDataFut0( datafn : string; startts, expdate : tdatetime );
-    {** procedura przygotowujaca plik do przetwarzania - czeka na pobranie i rozpakowuje *}
-    procedure PrepareZIPFile( fn : string );
-    procedure WaitForFile( fn : string );
-    function PrepareIntVal( val : string ) : string;
-    function PrepareFloatVal( val : double ) : string;
-
     //procedury generujaca dane intra i week+
     procedure GenTyg( idspolki, typ : integer );
     procedure GenMies( idspolki, typ : integer );
@@ -118,7 +101,7 @@ var
 implementation
 
 uses U_DM, rxfileutil, rxdateutil, rxstrutils,U_InetFile, DateUtils, math,
-  DB, U_DataProviderMP, inifiles, U_Consts, U_SeriesInfo;
+  DB, U_DataProviderMP, inifiles, U_Consts, U_SeriesInfo, U_Utils;
 
 {$R *.dfm}
 
@@ -227,186 +210,16 @@ begin
   Application.ProcessMessages;
 end;
 
-procedure TFormMain.WaitForFile(fn: string);
-begin
-  lblLPStan.Caption:='Pobieranie'; Application.ProcessMessages;
-  while not FileExists(fn) do  //czekamy na plik
-  begin
-    Application.ProcessMessages;
-    if FBreakLoad then exit;
-    sleep(1000);
-  end;
-end;
-
-procedure TFormMain.PrepareZIPFile(fn: string);
-begin
-  lblLPStan.Caption:='Pobieranie'; Application.ProcessMessages;
-  while not FileExists(fn) do  //czekamy na plik
-  begin
-    Application.ProcessMessages;
-    sleep(1000);
-  end;
-  if FBreakLoad then exit;
-  if GetFileSize(fn)<300 then exit;
-  lblLPStan.Caption:='Rozpakowanie'; Application.ProcessMessages;
-  Zip.ZipFileName:=fn;
-  Zip.ExtrBaseDir:=NormalDir(extractfilepath(fn));
-  Zip.Extract;
-  Application.ProcessMessages;
-end;
-
-procedure TFormMain.UpdateDataFut0(datafn: string; startts, expdate: tdatetime);
-const
-  Q_ADDCIAGLE = 'insert into at_ciagle%d(fk_id_spolki, ts, x, open, high, low, close, volume, oi) values(%d, ''%s'', %s, %s,%s,%s,%s, %s, %s);';
-//  Q_UPDATECIAGLEPOS = 'update at_spolki set ciaglepos=%d where id=%d';
-//  Q_SELECTCIAGLEPOS = 'select ciaglepos from at_spolki where id=%d';
-var
-  f : TextFile;
-  fsize, linescnt, bread : integer;
-  sl,sl1 : TStringList;
-  cp, i, ilast : integer;
-  tlast, t2, d : double;
-  s, s1, dt, dtexp, qry : string;
-  refcourse : string;
-  prnfn : string;
-  exc : boolean;
-
-  procedure AddLine( line : string );
-  begin
-//    sl1.CommaText:=s1;
-    sl1.CommaText:=line;
-      //budowa stringu daty operacji
-    s:=sl1[2];  //ciagle
-    dt:=s[1]+s[2]+s[3]+s[4]+'-'+s[5]+s[6]+'-'+s[7]+s[8]+' ';
-    s:=sl1[3];
-    dt:=dt+s[1]+s[2]+':'+s[3]+s[4]+':'+s[5]+s[6];
-
-      //budowa zapytania
-    qry:=format(Q_ADDCIAGLE,[
-//      dm.qrySpolki.fieldbyname('typ').AsInteger,  //odpowiednia tabela w zaleznosci od typu spolki (spolka, indeks, ...)
-      2,
-      dm.qrySpolki.fieldbyname('id').AsInteger,
-      dt, sl1[1],
-      sl1[4], sl1[5], sl1[6], sl1[7],
-      sl1[8], sl1[9]
-    ]);
-    dm.ExecSql(qry);  //dodanie wiersza do bazy [problem jest zeby zrobic to pakietami np po 100]
-  end;
-begin
-  exc:=false;
-  bread:=0;
-  refcourse:='';
-  if not fileexists(datafn) then exit;  //jesli nie ma okreslonego pliku to pomijamy
-  PrepareZIPFile( datafn );
-  lblLPStan.Caption:='Przetwarzanie';
-  prnfn:=replacestr(datafn, extractfileext(datafn), '.prn');
-  if not fileexists(prnfn) then exit;   //jesli plik sie nie rozpakowal to pomijamy go
-
-  sl:=TStringList.Create; sl1:=TStringList.Create;
-  fsize:=GetFileSize(prnfn);
-  AssignFile(f, prnfn);
-  reset(f);
-
-  try
-      //szukanie startts
-    //mamy nowy plik - szukamy od poczatku pliku pozycji z podana data
-    cp:=0;
-  //  dt:=format('%.4d%.2d%.2d', [ExtractYear(startts), ExtractMonth(startts), ExtractDay(startts)]);
-    dt:=FormatDateTime('yyyymmdd,hhnnss', startts);
-    dtexp:=FormatDateTime('yyyymmdd,hhnnss', expdate);
-    while not Eof(f) do
-    begin
-      readln(f, s1);
-      bread:=bread + length(s1);
-      inc(cp);
-      if pos(dt, s1)>0 then
-      begin
-        break;
-      end;
-      sl1.CommaText:=s1;
-      if (sl1[2]+','+sl1[3]) > dt then  //data znaleziona jest wieksza od startts -> dodajemy nowa linie i reszte pliku
-      begin
-        if (sl1[2]+','+sl1[3]) < dtexp then
-          AddLine(s1);
-        break;
-      end;
-    end;
-
-      //przetwarzanie od nastepnej pozycji
-    linescnt:=cp;
-    i:=0;
-    ilast:=cp; tlast:=now; ilast:=bread;
-    while not Eof(f) do
-    begin
-      lblLPPostep.Caption:=format('%d',[linescnt]);
-      if linescnt and 7 = 7 then Application.ProcessMessages;
-      if linescnt and 127 = 127 then  //szacowanie czasu do konca pakietu
-      begin
-        t2:=now;
-        i:=bread;
-        if i>ilast then
-        begin
-          d:=(fsize-i)*(t2-tlast)/(i-ilast);
-          lblLPCzasDoKoncaPakietu.Caption:=FormatDateTime('hh:nn:ss',d);
-        end;
-        ilast:=i; tlast:=t2;
-      end;
-      if FBreakLoad then break;
-
-      readln(f, s1);
-      bread:=bread + length(s1);
-      inc(linescnt);
-      if (sl1[2]+','+sl1[3]) < dtexp then //dodajemy jesli nie przekroczyla daty expiration
-        AddLine(s1)
-      else
-        break;
-  //    if i>10 then break;
-    end;
-
-    mmUpdateLog.Lines.Add(format('%s: %d', [extractfilename(prnfn), linescnt-cp]));
-  except
-    on e : Exception do
-    begin
-      exc:=true;
-      mmUpdateLog.Lines.Add(format('%s: blad przetwarzania linia [linescnt=%d, cp=%d]:'+#13#10+'%s', [extractfilename(prnfn), linescnt, cp, e.Message]));
-    end;
-  end;
-
-  sl1.Free; sl.Free;
-  CloseFile(f);
-  if not exc then
-  begin
-    DeleteFile(prnfn); //usuniecie rozpakowanego pliku
-    DeleteFile(datafn); //usuniecie rozpakowanego pliku
-  end;
-end;
-
-function TFormMain.PrepareIntVal(val: string): string;
-begin
-  result:=val;
-  if trim(val)='' then result:='0';
-end;
-
-function TFormMain.PrepareFloatVal(val: double): string;
-begin
-  result:=replacestr(format('%.2f',[val]), ',', '.');
-end;
-
 procedure TFormMain.actDLCiagleExecute(Sender: TObject);
 const
-//  Q_SPOLKI = 'select * from at_spolki order by typ, id';
-  Q_SPOLKI = 'select * from at_spolki where id=288 order by typ, id'; //WIG
-//  Q_SPOLKI = 'select * from at_spolki where id=344 order by typ, id'; //FW20WS
-  Q_MAXTS = 'select max(ts) from at_ciagle%d where fk_id_spolki=%d';
-  Q_FIRSTBIEZACA = 'select min(biezaca) from at_serie where fk_id_spolki=%d';
+  Q_SPOLKI = 'select * from at_spolki order by typ, id';
+//  Q_SPOLKI = 'select * from at_spolki where id=288 order by typ, id'; //WIG
+//  Q_SPOLKI = 'select * from at_spolki where id=1039 order by typ, id'; //FW20WS20
 var
   fn, datafn : string;
-  currts, maxts : tdatetime;
-  fd : TFutData;
   sinfo : TSeriesInfo;
   i : integer;
 begin
-  currts:=now;
   lblLPPostep.Caption:=''; lblLPCzasDoKoncaPakietu.Caption:='';
   lblLPSpolka.Caption:=''; lblLPStan.Caption:='';
   mmUpdateLog.Clear;
@@ -465,7 +278,6 @@ begin
           lblLPSpolka.Caption:=format('(%d/%d) %s', [dm.qrySpolki.RecNo, dm.qrySpolki.RecordCount, dm.qrySpolki.fieldbyname('nazwaakcji').AsString]);
           if sinfo.GetSeriesForCurrentDownload(dm.qrySpolki.fieldbyname('id').AsInteger, TMarketOpsStockType(dm.qrySpolki.fieldbyname('typ').AsInteger)) then
           begin
-            maxts:=sinfo.CurrentMaxTS;
             for i := 0 to sinfo.Count - 1 do
             begin
               if FBreakLoad then break;
@@ -473,8 +285,10 @@ begin
               datafn:=dm.qrySpolki.fieldbyname('nazwaakcji').AsString + sinfo[i].series + '.prn';
               if FFilesDownloader.WaitAndUnzipAsyncFile(fn) then
               begin
-                UpdateDataFut0(FUnzipDir + datafn, maxts, sinfo[i].expiration+1);
-                maxts:=sinfo[i].expiration + 1;
+                if FDataInserter.InsertData(modataTicks, TMarketOpsStockType(dm.qrySpolki.fieldbyname('typ').AsInteger), dm.qrySpolki.fieldbyname('id').AsInteger, FUnzipDir + datafn, sinfo[i].expiration + 1) then
+                  DeleteFile( FUnzipDir + fn ) //usuwamy plik zip
+                else
+                  mmUpdateLog.Lines.Add(format('[id=%d, %s] %s', [dm.qrySpolki.fieldbyname('id').AsInteger, sinfo[i].series, FDataInserter.ErrMsg]));
               end
               else
                 mmUpdateLog.Lines.Add(format('! brak pliku: %s', [fn]));
@@ -591,18 +405,18 @@ begin
 end;
 
 procedure TFormMain.AutomaticProcess;
-const
-  Q_STOCKINFO = 'select * from at_spolki where nazwaspolki=''%s''';
-  Q_MAXTSFUT = 'select max(ts) from at_ciagle2 where fk_id_spolki=%d';
-  Q_FIRSTBIEZACA = 'select min(biezaca) from at_serie where fk_id_spolki=%d';
-var
-  ini : TIniFile;
-  sl, sl2, slintra, slfutfiles : TStringList;
-  i,j : integer;
-  stockid, stocktype : integer;
-  fn, fn2 : string;
-  fd : TFutData;
-  maxts, currts : double;
+//const
+//  Q_STOCKINFO = 'select * from at_spolki where nazwaspolki=''%s''';
+//  Q_MAXTSFUT = 'select max(ts) from at_ciagle2 where fk_id_spolki=%d';
+//  Q_FIRSTBIEZACA = 'select min(biezaca) from at_serie where fk_id_spolki=%d';
+//var
+//  ini : TIniFile;
+//  sl, sl2, slintra, slfutfiles : TStringList;
+//  i,j : integer;
+//  stockid, stocktype : integer;
+//  fn, fn2 : string;
+//  fd : TFutData;
+//  maxts, currts : double;
 begin
 //  currts:=now;
 //    //pobranie plikow danych dziennych
@@ -778,30 +592,6 @@ begin
   else
     lblLPCzasDoKoncaPakietu.Caption:=format('%s (%.2f lines/s)', [FormatDateTime('hh:nn:ss', ATimeExpectedToFinish), ALinesPerSec]);
   VDoBreak:=FBreakLoad;
-end;
-
-function TFormMain.GetCurrFutData2(FutID: integer; TS: TDateTime): TFutData;
-const
-  Q_QRY = 'select * from at_serie where fk_id_spolki=%d and biezaca<''%s'' and stop>=''%s''';
-begin
-  ts:=floor(ts);
-  result.series:='';
-  result.expiration:=0;
-
-  dm.OpenQuery(dm.qryTemp2, format(Q_QRY, [FutID, formatdatetime('yyyy-mm-dd',ts), formatdatetime('yyyy-mm-dd',ts)]));
-  if not dm.qryTemp2.Eof then
-  begin
-    result.expiration:=dm.qryTemp2.fieldbyname('stop').AsDateTime;
-//    result.series:=format('%s%.1d',[dm.qryTemp2.fieldbyname('nazwa').AsString, ExtractYear(result.expiration) mod 10]);
-    result.series:=dm.qryTemp2.fieldbyname('nazwa').AsString;
-  end
-  else
-  begin
-    result.series:='';
-//    raise Exception.CreateFmt('Brak informacji o serii dla ID=%d TS=%s', [FutID, formatdatetime('yyyy-mm-dd', TS)]);
-    MessageDlg(format('Brak informacji o serii dla ID=%d TS=%s', [FutID, formatdatetime('yyyy-mm-dd', TS)]), mtError, [mbOK], 0);
-  end;
-  dm.qryTemp2.Close;
 end;
 
 procedure TFormMain.GenTyg(idspolki, typ: integer);
