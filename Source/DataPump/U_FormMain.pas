@@ -40,7 +40,6 @@ type
     Button4: TButton;
     Panel4: TPanel;
     mmLogGen: TMemo;
-    Button5: TButton;
     Label5: TLabel;
     lblGenProg: TLabel;
     tabMP: TTabSheet;
@@ -60,7 +59,6 @@ type
     procedure actDLBreakExecute(Sender: TObject);
     procedure actGenIntraWeekExecute(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
-    procedure Button5Click(Sender: TObject);
     procedure actGenMPExecute(Sender: TObject);
   private
     Zip: TZipMaster;
@@ -75,7 +73,6 @@ type
     //procedury generujaca dane intra i week+
     procedure GenTyg( idspolki, typ : integer );
     procedure GenMies( idspolki, typ : integer );
-    procedure GenIntraMin( idspolki, typ, range : integer );
     procedure GenIntraMin2( idspolki, typ, range : integer );
 
     //procedury genrujace MP
@@ -657,7 +654,6 @@ begin
   dm.qryTemp.Close;
 end;
 
-
 procedure TFormMain.GenMies(idspolki, typ: integer);
 const
   Q_QRY1 = 'select * from at_dzienne%d where fk_id_spolki=%d and ts>=''%s'' and ts<''%s'' order by ts';
@@ -788,109 +784,6 @@ begin
   end;
 end;
 
-procedure TFormMain.GenIntraMin(idspolki, typ, range: integer);
-const
-  Q_QRY1 = 'select * from at_ciagle%d where fk_id_spolki=%d and ts>=''%s'' and ts<''%s'' order by ts';
-  Q_MAXTS = 'select max(ts) from at_%s%d where fk_id_spolki=%d';
-  Q_MINTS = 'select min(ts) from at_ciagle%d where fk_id_spolki=%d';
-  Q_QRYDEL = 'delete from at_%s%d where fk_id_spolki=%d and ts>=''%s''';
-  Q_INS = 'insert into at_%s%d(fk_id_spolki, ts, open, high, low, close, volume) values(%d, ''%s'', %s, %s, %s, %s, %d)';
-var
-  tbl : string;
-  rangeadd, rangemul : double;
-  dt, dtend, dtintra : TDateTime;
-  i, cnt : integer;
-  o,h,l,c : double;
-  vol : integer;
-begin
-  case range of //nazwa tabeli
-    1 : tbl:='intra1m';
-    2 : tbl:='intra2m';
-    3 : tbl:='intra3m';
-    4 : tbl:='intra4m';
-    5 : tbl:='intra5m';
-    10 : tbl:='intra10m';
-    15 : tbl:='intra15m';
-    20 : tbl:='intra20m';
-    30 : tbl:='intra30m';
-    60 : tbl:='intra60m';
-  end;
-//  rangeadd:=(1.0/24.0/60.0)*range;  //modyfikator daty do nastepnego zakresu
-  rangeadd:=range;
-  rangemul:=24.0*60;
-
-  dtend:=ceil(now);
-  dm.OpenQuery(dm.qryTemp, format(Q_MAXTS,[tbl, typ, idspolki]));
-  dt:=dm.qryTemp.Fields[0].AsDateTime;
-  dm.qryTemp.Close;
-  if dt=0 then //generujemy dane od poczatku
-  begin
-    dm.OpenQuery(dm.qryTemp, format(Q_MINTS,[typ, idspolki]));
-    dt:=dm.qryTemp.Fields[0].AsDateTime;
-    dm.qryTemp.Close;
-    if dt=0 then
-    begin
-      MessageDlg('Nie ma danych ciaglych dla spolki '+inttostr(idspolki), mtWarning, [mbOK], 0);
-      exit;
-    end;
-  end
-  else        //generujemy od ostatniego wpisu - usuwajac dane z ostatniego dnia i generujac je ponownie
-  begin
-    dm.ExecSql(format(Q_QRYDEL, [tbl, typ, idspolki, formatdatetime('yyyy-mm-dd', dt)]));
-  end;
-  dt:=floor(dt);  //poczatek pierwszego dnia danych
-
-  while dt<dtend do
-  begin
-    o:=0; h:=0; l:=1000000; c:=0; vol:=0;
-    dm.OpenQuery(dm.qryTemp, format(Q_QRY1, [typ, idspolki, formatdatetime('yyyy-mm-dd',dt), formatdatetime('yyyy-mm-dd',dt+1)]));
-    if not dm.qryTemp.Eof then
-    begin
-//      dtintra:=dt;
-      dtintra:=floor(dt * rangemul);
-      cnt:=1;
-      while not dm.qryTemp.Eof do //przejscie po wszystkich zakresach w ciagu dnia. jesli nie ma danych zakres jest pomijany (o=0)
-      begin
-//        if dtintra + rangeadd < dm.qryTemp.FieldByName('ts').AsDateTime then  //nast dane juz z nastepnego zakresu
-        if (dtintra + rangeadd) < (dm.qryTemp.FieldByName('ts').AsDateTime * rangemul) then  //nast dane juz z nastepnego zakresu
-        begin
-          if o>0 then //dodajemy dane
-          begin
-//            dm.ExecSql(format(Q_INS,[tbl, typ, idspolki, formatdatetime('yyyy-mm-dd hh:nn',dtintra),
-//              PrepareFloatVal(o), PrepareFloatVal(h), PrepareFloatVal(l), PrepareFloatVal(c), vol]));
-            dm.ExecSql(format(Q_INS,[tbl, typ, idspolki, formatdatetime('yyyy-mm-dd hh:nn',dtintra/rangemul),
-              PrepareFloatVal(o), PrepareFloatVal(h), PrepareFloatVal(l), PrepareFloatVal(c), vol]));
-          end;
-          o:=0; h:=0; l:=1000000; c:=0; vol:=0;
-          cnt:=1;
-          dtintra:=floor(dtintra + rangeadd);
-        end
-        else                                                                  //ciagle w tym samym zakresie
-        begin
-          if cnt=1 then o:=dm.qryTemp.fieldbyname('open').AsFloat;
-          c:=dm.qryTemp.fieldbyname('close').AsFloat;
-
-          if h<dm.qryTemp.fieldbyname('high').AsFloat then h:=dm.qryTemp.fieldbyname('high').AsFloat;
-          if l>dm.qryTemp.fieldbyname('low').AsFloat then l:=dm.qryTemp.fieldbyname('low').AsFloat;
-          vol:=vol + dm.qryTemp.fieldbyname('volume').AsInteger;
-
-          dm.qryTemp.Next;
-          inc(cnt);
-        end;
-      end;
-      if o>0 then //dodajemy dane z ostatniej swieczki
-      begin
-//        dm.ExecSql(format(Q_INS,[tbl, typ, idspolki, formatdatetime('yyyy-mm-dd hh:nn',dtintra),
-//          PrepareFloatVal(o), PrepareFloatVal(h), PrepareFloatVal(l), PrepareFloatVal(c), vol]));
-        dm.ExecSql(format(Q_INS,[tbl, typ, idspolki, formatdatetime('yyyy-mm-dd hh:nn',dtintra/rangemul),
-          PrepareFloatVal(o), PrepareFloatVal(h), PrepareFloatVal(l), PrepareFloatVal(c), vol]));
-      end;
-    end;
-    dt:=dt + 1; //nast dzien
-  end;
-  dm.qryTemp.Close;
-end;
-
 procedure TFormMain.GenIntraMin2(idspolki, typ, range: integer);
 const
   Q_QRY1 = 'select count(*), min(low), max(high), sum(volume) from at_ciagle%d where fk_id_spolki=%d and ts>=''%s'' and ts<''%s''';
@@ -969,12 +862,6 @@ begin
     inc(i);
   end;
   dm.qryTemp.Close;
-end;
-
-procedure TFormMain.Button5Click(Sender: TObject);
-begin
-//  GenIntraMin(6,2, 60);
-//  MessageDlg('zrobione', mtWarning, [mbOK], 0);
 end;
 
 end.

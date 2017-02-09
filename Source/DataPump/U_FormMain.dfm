@@ -21,7 +21,7 @@ object FormMain: TFormMain
     Top = 0
     Width = 488
     Height = 334
-    ActivePage = tabDL
+    ActivePage = tabPodzial
     Align = alClient
     TabOrder = 0
     TabStop = False
@@ -144,10 +144,6 @@ object FormMain: TFormMain
     object tabPodzial: TTabSheet
       Caption = 'Generowanie danych intra i week+'
       ImageIndex = 1
-      ExplicitLeft = 0
-      ExplicitTop = 0
-      ExplicitWidth = 0
-      ExplicitHeight = 0
       object Panel3: TPanel
         Left = 0
         Top = 0
@@ -191,7 +187,7 @@ object FormMain: TFormMain
           Width = 185
           Height = 21
           Style = csDropDownList
-          ItemHeight = 0
+          ItemHeight = 13
           ItemIndex = 0
           TabOrder = 0
           Text = 'Tygodniowe'
@@ -215,7 +211,7 @@ object FormMain: TFormMain
           Width = 185
           Height = 21
           Style = csDropDownList
-          ItemHeight = 0
+          ItemHeight = 13
           TabOrder = 1
         end
         object Button4: TButton
@@ -226,24 +222,14 @@ object FormMain: TFormMain
           Action = actGenIntraWeek
           TabOrder = 2
         end
-        object Button5: TButton
-          Left = 352
-          Top = 40
-          Width = 75
-          Height = 25
-          Caption = 'Button5'
-          TabOrder = 3
-          Visible = False
-          OnClick = Button5Click
-        end
         object cbGenType: TComboBox
           Left = 112
           Top = 64
           Width = 185
           Height = 21
           Style = csDropDownList
-          ItemHeight = 0
-          TabOrder = 4
+          ItemHeight = 13
+          TabOrder = 3
           Items.Strings = (
             'Wybrane'
             'Wszystkie'
@@ -278,10 +264,6 @@ object FormMain: TFormMain
     object tabMP: TTabSheet
       Caption = 'MarketProfile'
       ImageIndex = 2
-      ExplicitLeft = 0
-      ExplicitTop = 0
-      ExplicitWidth = 0
-      ExplicitHeight = 0
       object Panel5: TPanel
         Left = 0
         Top = 0
@@ -311,7 +293,7 @@ object FormMain: TFormMain
           Width = 185
           Height = 21
           Style = csDropDownList
-          ItemHeight = 0
+          ItemHeight = 13
           ItemIndex = 0
           TabOrder = 0
           Text = '30 min'
@@ -324,7 +306,7 @@ object FormMain: TFormMain
           Width = 185
           Height = 21
           Style = csDropDownList
-          ItemHeight = 0
+          ItemHeight = 13
           TabOrder = 1
         end
         object Button6: TButton

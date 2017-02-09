@@ -22,6 +22,11 @@ type
   }
   TMarketOpsDataType = (modataTicks, modataDaily);
 
+  {
+    MarketOps generated data type
+  }
+  TMarketOpsDataGenType = (mogenMinute, mogenHour, mogenWeek, mogenMonth);
+
 implementation
 
 end.
