@@ -14,6 +14,8 @@ type
     FErrMsg: string;
 
     procedure ClearErr;
+    //checks if table exists
+    function CheckTableExists(ATblName : string) : boolean;
     //gets maxts for current stock from database (last inserted data)
     function GetMaxTS(AGenTableName : string; AStockID : integer) : double;
     //gets startts form current stock
@@ -22,8 +24,14 @@ type
     function GetGenerateTableName(AGenType : TMarketOpsDataGenType; ARange : integer; AStockType : TMarketOpsStockType) : string;
     //gets table name of source data
     function GetSourceTableName(AGenType : TMarketOpsDataGenType; ARange : integer; AStockType : TMarketOpsStockType) : string;
-    //checks if table exists
-    function CheckTableExists(ATblName : string) : boolean;
+    //prepares ts to start generation from
+    function PrepareGenStartTS(AGenType : TMarketOpsDataGenType; ARange : integer; AStockType : TMarketOpsStockType; ATS : TDateTime) : TDateTime;
+    function PrepareGenEndTS(AGenType : TMarketOpsDataGenType; ARange : integer; AStockType : TMarketOpsStockType) : TDateTime;
+    //deletes data from specified table for stock from ATS
+    procedure DeleteDataFromTS(ATblName : string; AStockID : integer; ATS : TDateTime);
+
+    //generation of data
+    procedure IntGenerateData(AGenType : TMarketOpsDataGenType; ARange : integer; AStockID : integer; ADTStart, ADTEnd : TDateTime; ASrcTbl, AGenTbl : string);
   public
     property ErrMsg : string read FErrMsg;
 
@@ -33,7 +41,7 @@ type
 
 implementation
 
-uses U_DM, SysUtils;
+uses U_DM, SysUtils, Math, DateUtils;
 
 { TDataGenerator }
 
@@ -55,11 +63,19 @@ begin
   FErrMsg:='';
 end;
 
+procedure TDataGenerator.DeleteDataFromTS(ATblName: string; AStockID: integer;
+  ATS: TDateTime);
+const
+  Q_DEL = 'delete from %s where fk_id_spolki=%d and ts>=''%s''';
+begin
+  dm.ExecSql(format(Q_DEL, [ATblName, AStockID, formatdatetime('yyyy-mm-dd', ATS)]));
+end;
+
 function TDataGenerator.GenerateData(AGenType: TMarketOpsDataGenType; ARange : integer;
   AStockType: TMarketOpsStockType; AStockID: integer) : boolean;
 var
   gentablename, srctablename : string;
-  dtstart : TDateTime;
+  dtstart, dtend : TDateTime;
 begin
   result:=false;
   ClearErr;
@@ -80,8 +96,13 @@ begin
     FErrMsg:=format('Brak danych [id=%d]', [AStockID]);
     exit;
   end;
+  dtstart:=PrepareGenStartTS(AGenType, ARange, AStockType, dtstart);
+  dtend:=PrepareGenEndTS(AGenType, ARange, AStockType);
   //last data repeated (deleted and regenerated)
-  
+  DeleteDataFromTS(gentablename, AStockID, dtstart);
+
+  IntGenerateData(AGenType, ARange, AStockID, dtstart, dtend, srctablename, gentablename);
+  result:=true;
 end;
 
 function TDataGenerator.GetMaxTS(AGenTableName : string; AStockID: integer): double;
@@ -105,6 +126,52 @@ begin
   if not dm.qryTemp.Eof then
     result:=dm.qryTemp.Fields[0].AsDateTime;
   dm.qryTemp.Close;
+end;
+
+procedure TDataGenerator.IntGenerateData(AGenType: TMarketOpsDataGenType;
+  ARange, AStockID: integer; ADTStart, ADTEnd: TDateTime; ASrcTbl,
+  AGenTbl: string);
+const
+  Q_DATA = 'select count(*), min(low), max(high), sum(volume) from %s where fk_id_spolki=%d and ts>=''%s'' and ts<''%s''';
+  Q_OPEN = 'select * from %s where fk_id_spolki=%d and ts>=''%s'' and ts<''%s'' order by ts asc limit 1';
+  Q_CLOSE = 'select * from %s where fk_id_spolki=%d and ts>=''%s'' and ts<''%s'' order by ts desc limit 1';
+var
+  dt2 : TDateTime;
+  i, cnt : integer;
+  o,h,l,c : double;
+  vol : integer;
+  sdt1, sdt2 : string;
+begin
+  i:=0;
+  while ADTStart<ADTEnd do
+  begin
+//    dt2:=0;
+
+
+    inc(i);  
+  end;
+end;
+
+function TDataGenerator.PrepareGenEndTS(AGenType: TMarketOpsDataGenType;
+  ARange: integer; AStockType: TMarketOpsStockType): TDateTime;
+begin
+  case AGenType of
+    mogenMinute, mogenHour: result:=ceil(now);
+    mogenWeek, mogenMonth: result:=floor(now);
+  else
+    raise Exception.CreateFmt('Nieznany typ generowania danych: %d', [ord(AGenType)]);
+  end;
+end;
+
+function TDataGenerator.PrepareGenStartTS(AGenType : TMarketOpsDataGenType; ARange : integer; AStockType : TMarketOpsStockType; ATS: TDateTime): TDateTime;
+begin
+  case AGenType of
+    mogenMinute, mogenHour: result:=floor(ATS); //beginning of a day
+    mogenWeek: result:=ATS - (DayOfTheWeek(ATS) - 1); //monday
+    mogenMonth: result:=ATS - DayOfTheMonth(ATS) + 1; //first day of month
+  else
+    raise Exception.CreateFmt('Nieznany typ generowania danych: %d', [ord(AGenType)]);
+  end;
 end;
 
 function TDataGenerator.GetSourceTableName(AGenType: TMarketOpsDataGenType;
