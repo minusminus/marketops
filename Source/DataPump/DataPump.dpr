@@ -13,7 +13,8 @@ uses
   U_SeriesInfo in 'U_SeriesInfo.pas',
   U_DataInserterProgressCalc in 'U_DataInserterProgressCalc.pas',
   U_Utils in '..\Shared\U_Utils.pas',
-  U_DataGenerator in 'U_DataGenerator.pas';
+  U_DataGenerator in 'U_DataGenerator.pas',
+  U_DataGeneratorProgressCalc in 'U_DataGeneratorProgressCalc.pas';
 
 {$R *.res}
 

@@ -181,6 +181,20 @@ object FormMain: TFormMain
           Height = 13
           Caption = 'lblGenProg'
         end
+        object Label8: TLabel
+          Left = 211
+          Top = 126
+          Width = 86
+          Height = 13
+          Caption = 'Do ko'#324'ca pakietu:'
+        end
+        object lblGenCzasDoKoncaPakietu: TLabel
+          Left = 299
+          Top = 126
+          Width = 129
+          Height = 13
+          Caption = 'lblGenCzasDoKoncaPakietu'
+        end
         object cbGenDataType: TComboBox
           Left = 112
           Top = 8

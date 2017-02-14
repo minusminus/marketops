@@ -6,12 +6,17 @@ uses
   U_Consts;
 
 type
+  //data generating progress
+  TOnGenerateProgress = procedure(ACurrTS : string; ATimeExpectedToFinish : TDateTime; ALongEvent : boolean; var VDoBreak : boolean) of object;
+
   {
     generates data for weeks, months and intraday
   }
   TDataGenerator = class
   private
     FErrMsg: string;
+    FOnGenerateFinished: TOnGenerateProgress;
+    FOnGenerateProgress: TOnGenerateProgress;
 
     procedure ClearErr;
     //checks if table exists
@@ -29,11 +34,18 @@ type
     function PrepareGenEndTS(AGenType : TMarketOpsDataGenType; ARange : integer; AStockType : TMarketOpsStockType) : TDateTime;
     //deletes data from specified table for stock from ATS
     procedure DeleteDataFromTS(ATblName : string; AStockID : integer; ATS : TDateTime);
+    //gets next ts in specified range
+    function GetNextRangeTS(AGenType : TMarketOpsDataGenType; ARange : integer; ADT : TDateTime) : TDateTime;
+    //gets datatime format string for specified range
+    function GetDTFormat(AGenType : TMarketOpsDataGenType) : string;
 
     //generation of data
-    procedure IntGenerateData(AGenType : TMarketOpsDataGenType; ARange : integer; AStockID : integer; ADTStart, ADTEnd : TDateTime; ASrcTbl, AGenTbl : string);
+    function IntGenerateData(AGenType : TMarketOpsDataGenType; ARange : integer; AStockID : integer; ADTStart, ADTEnd : TDateTime; ASrcTbl, AGenTbl : string) : boolean;
   public
     property ErrMsg : string read FErrMsg;
+
+    property OnGenerateProgress : TOnGenerateProgress read FOnGenerateProgress write FOnGenerateProgress;
+    property OnGenerateFinished : TOnGenerateProgress read FOnGenerateFinished write FOnGenerateFinished;
 
     //generates data of specified type for selected stock
     function GenerateData(AGenType : TMarketOpsDataGenType; ARange : integer; AStockType : TMarketOpsStockType; AStockID : integer) : boolean;
@@ -41,7 +53,7 @@ type
 
 implementation
 
-uses U_DM, SysUtils, Math, DateUtils;
+uses U_DM, SysUtils, Math, DateUtils, U_Utils, U_DataGeneratorProgressCalc;
 
 { TDataGenerator }
 
@@ -100,9 +112,7 @@ begin
   dtend:=PrepareGenEndTS(AGenType, ARange, AStockType);
   //last data repeated (deleted and regenerated)
   DeleteDataFromTS(gentablename, AStockID, dtstart);
-
-  IntGenerateData(AGenType, ARange, AStockID, dtstart, dtend, srctablename, gentablename);
-  result:=true;
+  result:=IntGenerateData(AGenType, ARange, AStockID, dtstart, dtend, srctablename, gentablename);
 end;
 
 function TDataGenerator.GetMaxTS(AGenTableName : string; AStockID: integer): double;
@@ -114,6 +124,17 @@ begin
   if not dm.qryTemp.Eof then
     result:=dm.qryTemp.Fields[0].AsDateTime;
   dm.qryTemp.Close;
+end;
+
+function TDataGenerator.GetNextRangeTS(AGenType: TMarketOpsDataGenType;
+  ARange: integer; ADT: TDateTime): TDateTime;
+begin
+  case AGenType of
+    mogenMinute: result:=IncMinute(ADT, ARange);
+    mogenHour: result:=IncMinute(ADT, 60*ARange);
+    mogenWeek: result:=IncWeek(ADT, ARange);
+    mogenMonth: result:=IncMonth(ADT, ARange);
+  end;
 end;
 
 function TDataGenerator.GetStartTS(ASrcTableName: string;
@@ -128,27 +149,71 @@ begin
   dm.qryTemp.Close;
 end;
 
-procedure TDataGenerator.IntGenerateData(AGenType: TMarketOpsDataGenType;
+function TDataGenerator.IntGenerateData(AGenType: TMarketOpsDataGenType;
   ARange, AStockID: integer; ADTStart, ADTEnd: TDateTime; ASrcTbl,
-  AGenTbl: string);
+  AGenTbl: string) : boolean;
 const
   Q_DATA = 'select count(*), min(low), max(high), sum(volume) from %s where fk_id_spolki=%d and ts>=''%s'' and ts<''%s''';
-  Q_OPEN = 'select * from %s where fk_id_spolki=%d and ts>=''%s'' and ts<''%s'' order by ts asc limit 1';
-  Q_CLOSE = 'select * from %s where fk_id_spolki=%d and ts>=''%s'' and ts<''%s'' order by ts desc limit 1';
+  Q_OPEN = 'select open from %s where fk_id_spolki=%d and ts>=''%s'' and ts<''%s'' order by ts asc limit 1';
+  Q_CLOSE = 'select close from %s where fk_id_spolki=%d and ts>=''%s'' and ts<''%s'' order by ts desc limit 1';
+  Q_INS = 'insert into %s(fk_id_spolki, ts, open, high, low, close, volume) values(%d, ''%s'', %s, %s, %s, %s, %d)';
 var
   dt2 : TDateTime;
   i, cnt : integer;
   o,h,l,c : double;
   vol : integer;
-  sdt1, sdt2 : string;
+  sdt1, sdt2, dtformat : string;
+  dobreak : boolean;
+  pcalc : TDataGeneratorProgressCalc;
 begin
-  i:=0;
-  while ADTStart<ADTEnd do
-  begin
-//    dt2:=0;
+  result:=false;
+  dobreak:=false;
+  dtformat:=GetDTFormat(AGenType);
+  pcalc:=TDataGeneratorProgressCalc.Create;
+  try
+    try
+      pcalc.Init(ADTStart, ADTEnd);
+      i:=0;
+      while ADTStart<ADTEnd do
+      begin
+        if i and 63 = 63 then
+          if assigned(FOnGenerateProgress) then FOnGenerateProgress(formatdatetime(dtformat, ADTStart), 0, false, dobreak);
+        if i and 127 = 127 then
+          if pcalc.Calculate(ADTStart) then
+            if assigned(FOnGenerateProgress) then FOnGenerateProgress(formatdatetime(dtformat, ADTStart), pcalc.TimeRemaining, true, dobreak);
+        if dobreak then break;
 
+        dt2:=GetNextRangeTS(AGenType, ARange, ADTStart);
+        sdt1:=FormatDateTime(dtformat, ADTStart);
+        sdt2:=FormatDateTime(dtformat, dt2);
 
-    inc(i);  
+        dm.OpenQuery(dm.qryTemp, Q_DATA, [ASrcTbl, AStockID, sdt1, sdt2]);
+        cnt:=dm.qryTemp.Fields[0].AsInteger;
+        l:=dm.qryTemp.Fields[1].AsFloat;
+        h:=dm.qryTemp.Fields[2].AsFloat;
+        vol:=dm.qryTemp.Fields[3].AsInteger;
+        if cnt>0 then
+        begin
+          dm.OpenQuery(dm.qryTemp, Q_OPEN, [ASrcTbl, AStockID, sdt1, sdt2]);
+          o:=dm.qryTemp.Fields[0].AsFloat;
+          dm.OpenQuery(dm.qryTemp, Q_CLOSE, [ASrcTbl, AStockID, sdt1, sdt2]);
+          c:=dm.qryTemp.Fields[0].AsFloat;
+
+          dm.ExecSql(Q_INS, [AGenTbl, AStockID, sdt1,
+            PrepareFloatVal(o), PrepareFloatVal(h), PrepareFloatVal(l), PrepareFloatVal(c), vol]);
+        end;
+        ADTStart:=dt2;
+        inc(i);
+      end;
+      if assigned(FOnGenerateFinished) then FOnGenerateFinished(formatdatetime(dtformat, ADTEnd), 0, false, dobreak);
+      result:=true;
+    except
+      on e : Exception do
+        FErrMsg:=format('B³¹d generowania danych [id=%d] %s:'#13#10'%s', [AStockID, formatdatetime(dtformat, ADTStart), e.Message]);
+    end;
+  finally
+    dm.qryTemp.Close;
+    pcalc.Free;
   end;
 end;
 
@@ -182,6 +247,14 @@ begin
     mogenWeek, mogenMonth: result:=format('at_dzienne%d', [ord(AStockType)]);
   else
     raise Exception.CreateFmt('Nieznany typ generowania danych: %d', [ord(AGenType)]);
+  end;
+end;
+
+function TDataGenerator.GetDTFormat(AGenType: TMarketOpsDataGenType): string;
+begin
+  case AGenType of
+    mogenMinute, mogenHour: result:='yyyy-mm-dd hh:nn';
+    mogenWeek, mogenMonth: result:='yyyy-mm-dd';
   end;
 end;
 

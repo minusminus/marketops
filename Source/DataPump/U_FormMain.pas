@@ -5,7 +5,7 @@ interface
 uses
   Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms,
   Dialogs, StdCtrls, ExtCtrls, ComCtrls, ActnList, ZipMstr, u_bgndloaderthread,
-  U_FilesDownloader, U_DataInserter;
+  U_FilesDownloader, U_DataInserter, U_DataGenerator;
 
 const
   MSG_AUTOMATICPROCESS = WM_APP + 1000;
@@ -53,6 +53,8 @@ type
     actGenMP: TAction;
     cbGenType: TComboBox;
     cbDaneDzienne: TComboBox;
+    Label8: TLabel;
+    lblGenCzasDoKoncaPakietu: TLabel;
     procedure FormCreate(Sender: TObject);
     procedure actDLDzienneExecute(Sender: TObject);
     procedure actDLCiagleExecute(Sender: TObject);
@@ -66,6 +68,7 @@ type
     BgndLoaderThr : TBgndLoaderThread;
     FFilesDownloader : TFilesDownloader;
     FDataInserter : TDataInserter;
+    FDataGenerator : TDataGenerator;
     FUnzipDir : string; 
 
     procedure LoadSpolki;
@@ -85,6 +88,9 @@ type
     //datainserter events
     procedure OnInsertProgress(ALinesRead : integer; ATimeExpectedToFinish : TDateTime; ALinesPerSec : double; ALongEvent : boolean; var VDoBreak : boolean);
     procedure OnInsertFinished(ALinesRead : integer; ATimeExpectedToFinish : TDateTime; ALinesPerSec : double; ALongEvent : boolean; var VDoBreak : boolean);
+    //datagenerator events
+    procedure OnGenerateProgress(ACurrTS : string; ATimeExpectedToFinish : TDateTime; ALongEvent : boolean; var VDoBreak : boolean);
+    procedure OnGenerateFinished(ACurrTS : string; ATimeExpectedToFinish : TDateTime; ALongEvent : boolean; var VDoBreak : boolean);
     //async download events
     procedure OnCheckDownloadBreak(var VBreakLoad : boolean);
   protected
@@ -109,6 +115,9 @@ begin
   FDataInserter:=TDataInserter.Create;
   FDataInserter.OnInsertProgress:=OnInsertProgress;
   FDataInserter.OnInsertFinished:=OnInsertFinished;
+  FDataGenerator:=TDataGenerator.Create;
+  FDataGenerator.OnGenerateProgress:=OnGenerateProgress;
+  FDataGenerator.OnGenerateFinished:=OnGenerateFinished;
   FUnzipDir:=NormalDir(ExtractFilePath(ParamStr(0)))+'ATunzip\';
 
   Zip:=TZipMaster.Create(nil);
@@ -123,6 +132,7 @@ end;
 procedure TFormMain.FormDestroy(Sender: TObject);
 begin
   Zip.Free;
+  FDataGenerator.Free;
   FDataInserter.Free;
   FFilesDownloader.Free;
 end;
@@ -570,6 +580,25 @@ procedure TFormMain.OnCheckDownloadBreak(var VBreakLoad: boolean);
 begin
   Application.ProcessMessages;
   VBreakLoad:=FBreakLoad;
+end;
+
+procedure TFormMain.OnGenerateFinished(ACurrTS: string;
+  ATimeExpectedToFinish: TDateTime; ALongEvent: boolean; var VDoBreak: boolean);
+begin
+  mmLogGen.Lines.Add(format('%s [%d]', [dm.qrySpolki.fieldbyname('nazwaakcji').AsString, dm.qrySpolki.fieldbyname('id').AsInteger]));
+end;
+
+procedure TFormMain.OnGenerateProgress(ACurrTS: string;
+  ATimeExpectedToFinish: TDateTime; ALongEvent: boolean; var VDoBreak: boolean);
+begin
+  if not ALongEvent then
+  begin
+    lblGenProg.Caption:=ACurrTS;
+    Application.ProcessMessages;
+  end
+  else
+    lblGenCzasDoKoncaPakietu.Caption:=format('%s', [FormatDateTime('hh:nn:ss', ATimeExpectedToFinish)]);
+  VDoBreak:=FBreakLoad;
 end;
 
 procedure TFormMain.OnInsertFinished(ALinesRead: integer;
