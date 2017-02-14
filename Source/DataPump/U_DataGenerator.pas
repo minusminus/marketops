@@ -128,10 +128,20 @@ end;
 
 function TDataGenerator.GetNextRangeTS(AGenType: TMarketOpsDataGenType;
   ARange: integer; ADT: TDateTime): TDateTime;
+
+  //corrects floating point differences that adds resulting times like 01:59 instead of 02:00 
+  function CorrectDaySwitch(ATS1, ATS2 : TDateTime) : TDateTime;
+  var
+    t1, t2 : TDateTime;
+  begin
+    result:=ATS2;
+    t1:=floor(ATS1); t2:=floor(ATS2);
+    if t2-t1>0 then result:=t2;    
+  end;
 begin
   case AGenType of
-    mogenMinute: result:=IncMinute(ADT, ARange);
-    mogenHour: result:=IncMinute(ADT, 60*ARange);
+    mogenMinute: result:=CorrectDaySwitch(ADT, IncMinute(ADT, ARange));
+    mogenHour: result:=CorrectDaySwitch(ADT, IncHour(ADT, ARange));
     mogenWeek: result:=IncWeek(ADT, ARange);
     mogenMonth: result:=IncMonth(ADT, ARange);
   end;
@@ -163,8 +173,8 @@ var
   o,h,l,c : double;
   vol : integer;
   sdt1, sdt2, dtformat : string;
-  dobreak : boolean;
   pcalc : TDataGeneratorProgressCalc;
+  dobreak : boolean;
 begin
   result:=false;
   dobreak:=false;

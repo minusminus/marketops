@@ -254,6 +254,14 @@ object FormMain: TFormMain
             'Tylko typ 5 (waluty NBP)'
             'Tylko typ 6 (forex)')
         end
+        object Button5: TButton
+          Left = 307
+          Top = 95
+          Width = 121
+          Height = 25
+          Action = actGenBreak
+          TabOrder = 4
+        end
       end
       object Panel4: TPanel
         Left = 0
@@ -365,6 +373,10 @@ object FormMain: TFormMain
     object actGenMP: TAction
       Caption = 'Generuj'
       OnExecute = actGenMPExecute
+    end
+    object actGenBreak: TAction
+      Caption = 'Przerwij generowanie'
+      OnExecute = actGenBreakExecute
     end
   end
 end

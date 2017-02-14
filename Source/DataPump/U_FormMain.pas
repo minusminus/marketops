@@ -55,6 +55,8 @@ type
     cbDaneDzienne: TComboBox;
     Label8: TLabel;
     lblGenCzasDoKoncaPakietu: TLabel;
+    Button5: TButton;
+    actGenBreak: TAction;
     procedure FormCreate(Sender: TObject);
     procedure actDLDzienneExecute(Sender: TObject);
     procedure actDLCiagleExecute(Sender: TObject);
@@ -62,6 +64,7 @@ type
     procedure actGenIntraWeekExecute(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
     procedure actGenMPExecute(Sender: TObject);
+    procedure actGenBreakExecute(Sender: TObject);
   private
     Zip: TZipMaster;
     FBreakLoad : boolean;
@@ -178,6 +181,7 @@ begin
   mmUpdateLog.Clear;
   mmUpdateLog.Lines.Add('+++ Start: '+formatdatetime('yyyy-mm-dd hh:nn:ss', now));
   FBreakLoad:=false;
+  Application.ProcessMessages;
 
   ForceDirectories(FUnzipDir);
   typ:=cbDaneDzienne.ItemIndex;
@@ -325,75 +329,81 @@ begin
   FFilesDownloader.StopAsyncDownload;
 end;
 
+procedure TFormMain.actGenBreakExecute(Sender: TObject);
+begin
+  FBreakLoad:=true;
+end;
+
 procedure TFormMain.actGenIntraWeekExecute(Sender: TObject);
 const
-  Q_GETTYP = 'select typ from at_spolki where id=%d';
-  Q_GETSTOCKS = 'select id, nazwaspolki from at_spolki where typ=%d and aktywna=TRUE';
+  Q_STOCKSID = 'select id, nazwaspolki, nazwaakcji, typ from at_spolki where id=%d and aktywna=TRUE';
+  Q_STOCKSTYP = 'select id, nazwaspolki, nazwaakcji, typ from at_spolki where typ=%d and aktywna=TRUE order by id';
+  Q_STOCKSALL = 'select id, nazwaspolki, nazwaakcji, typ from at_spolki where aktywna=TRUE order by typ, id';
+  Q_STOCKTEST = 'select id, nazwaspolki, nazwaakcji, typ  from at_spolki where id=1039'; //FW20WS20
 var
-  id, typ : integer;
-
-  procedure CallGen;
-  begin
-    if typ>0 then
-      case cbGenDataType.ItemIndex of
-        0 : GenTyg(id, typ);
-        1 : GenMies(id, typ);
-        2 : GenIntraMin2(id, typ, 1);//  1 min
-        3 : GenIntraMin2(id, typ, 2);//  2 min
-        4 : GenIntraMin2(id, typ, 3);//  3 min
-        5 : GenIntraMin2(id, typ, 4);//  4 min
-        6 : GenIntraMin2(id, typ, 5);//  5 min
-        7 : GenIntraMin2(id, typ, 10);//  10 min
-        8 : GenIntraMin2(id, typ, 15);//  15 min
-        9 : GenIntraMin2(id, typ, 20);//  20 min
-        10: GenIntraMin2(id, typ, 30);//  30 min
-        11: GenIntraMin2(id, typ, 60);//  60 min
-      end;
-  end;
+  genrange : integer;
+  gentype : TMarketOpsDataGenType;
+  id : integer;
+  typ : TMarketOpsStockType;
 begin
-  lblGenProg.Caption:='';
-  mmLogGen.Lines.Add('Start');
-  application.ProcessMessages;
-    //wybrana spolka
-  if (cbGenType.ItemIndex=0) and (cbSpolka.Items.Objects[cbSpolka.ItemIndex]<>nil) then
-  begin
-    id:=Integer(cbSpolka.Items.Objects[cbSpolka.ItemIndex]);
-    dm.OpenQuery(dm.qryTemp, format(Q_GETTYP, [id]));
-    typ:=dm.qryTemp.Fields[0].AsInteger;
-    dm.qryTemp.Close;
-    CallGen;
-  end;
-    //wszystkie spolki
-  if cbGenType.ItemIndex=1 then
-  begin
+  lblGenProg.Caption:=''; lblGenCzasDoKoncaPakietu.Caption:='';
+  mmLogGen.Clear;
+  mmLogGen.Lines.Add('+++ Start: '+formatdatetime('yyyy-mm-dd hh:nn:ss', now));
+  FBreakLoad:=false;
+  Application.ProcessMessages;
+
+  //generation range and type
+  case cbGenDataType.ItemIndex of
+    0 : begin gentype:=mogenWeek; genrange:=1; end;
+    1 : begin gentype:=mogenMonth; genrange:=1; end;
+    2 : begin gentype:=mogenMinute; genrange:=1; end;//  1 min
+    3 : begin gentype:=mogenMinute; genrange:=2; end;//  2 min
+    4 : begin gentype:=mogenMinute; genrange:=3; end;//  3 min
+    5 : begin gentype:=mogenMinute; genrange:=4; end;//  4 min
+    6 : begin gentype:=mogenMinute; genrange:=5; end;//  5 min
+    7 : begin gentype:=mogenMinute; genrange:=10; end;//  10 min
+    8 : begin gentype:=mogenMinute; genrange:=15; end;//  15 min
+    9 : begin gentype:=mogenMinute; genrange:=20; end;//  20 min
+    10: begin gentype:=mogenMinute; genrange:=30; end;//  30 min
+    11: begin gentype:=mogenHour; genrange:=1; end;//  60 min
   end;
 
-    //poszczegolne typy
-  if cbGenType.ItemIndex in [2,3,4,5,6,7] then
+  //select stocks
+//  if (cbGenType.ItemIndex=0) and (cbSpolka.Items.Objects[cbSpolka.ItemIndex]<>nil) then
+//  begin  //selected stock
+//    id:=Integer(cbSpolka.Items.Objects[cbSpolka.ItemIndex]);
+//    dm.OpenQuery(dm.qrySpolki, Q_STOCKSID, [id]);
+//  end
+//  else if cbGenType.ItemIndex=1 then
+//  begin  //all stocks
+//    dm.OpenQuery(dm.qrySpolki, Q_STOCKSALL);
+//  end
+//  else if cbGenType.ItemIndex in [2,3,4,5,6,7] then
+//  begin  //selected type
+//    case cbGenType.ItemIndex of
+//      2 : typ:=motGPWStock;
+//      3 : typ:=motGPWIndex;
+//      4 : typ:=motGPWIndexFuture;
+//      5 : typ:=motPLInvestmentFund;
+//      6 : typ:=motNBPCurrency;
+//      7 : typ:=motBossaFX;
+//    end;
+//    dm.OpenQuery(dm.qrySpolki, Q_STOCKSTYP, [ord(typ)]);
+//  end;
+  dm.OpenQuery(dm.qrySpolki, Q_STOCKTEST);  //test query
+  //generate data for selected stocks
+  dm.qrySpolki.First;
+  while not dm.qrySpolki.Eof do
   begin
-    case cbGenType.ItemIndex of
-      2 : typ:=0;
-      3 : typ:=1;
-      4 : typ:=2;
-      5 : typ:=4;
-      6 : typ:=5;
-      7 : typ:=6;
-    end;
-    dm.OpenQuery(dm.qryTemp3, format(Q_GETSTOCKS, [typ]));
-    dm.qryTemp3.First;
-    while not dm.qryTemp3.Eof do
-    begin
-      mmLogGen.Lines.Add(dm.qryTemp3.Fields[1].AsString);
-      Application.ProcessMessages;
-      
-      id:=dm.qryTemp3.Fields[0].AsInteger;
-      CallGen;
-      dm.qryTemp3.Next;
-    end;
-    dm.qryTemp3.Close;
-  end;  
+    Application.ProcessMessages;
+    if FBreakLoad then break;
+    if not FDataGenerator.GenerateData(gentype, genrange, TMarketOpsStockType(dm.qrySpolki.FieldByName('typ').asinteger), dm.qrySpolki.FieldByName('id').asinteger) then
+      mmLogGen.Lines.Add('B³¹d: ' + FDataInserter.ErrMsg);
+    dm.qrySpolki.Next;
+  end;
+  dm.qrySpolki.Close;
 
-  mmLogGen.Lines.Add('Stop');
+  mmLogGen.Lines.Add('+++ Stop: '+formatdatetime('yyyy-mm-dd hh:nn:ss', now));
 end;
 
 procedure TFormMain.actGenMPExecute(Sender: TObject);
@@ -586,6 +596,7 @@ procedure TFormMain.OnGenerateFinished(ACurrTS: string;
   ATimeExpectedToFinish: TDateTime; ALongEvent: boolean; var VDoBreak: boolean);
 begin
   mmLogGen.Lines.Add(format('%s [%d]', [dm.qrySpolki.fieldbyname('nazwaakcji').AsString, dm.qrySpolki.fieldbyname('id').AsInteger]));
+  Application.ProcessMessages;
 end;
 
 procedure TFormMain.OnGenerateProgress(ACurrTS: string;
