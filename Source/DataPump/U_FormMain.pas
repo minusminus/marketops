@@ -76,11 +76,6 @@ type
 
     procedure LoadSpolki;
 
-    //procedury generujaca dane intra i week+
-    procedure GenTyg( idspolki, typ : integer );
-    procedure GenMies( idspolki, typ : integer );
-    procedure GenIntraMin2( idspolki, typ, range : integer );
-
     //procedury genrujace MP
     procedure GenMPDzienne( idspolki, typ : integer );
 
@@ -369,29 +364,30 @@ begin
   end;
 
   //select stocks
-//  if (cbGenType.ItemIndex=0) and (cbSpolka.Items.Objects[cbSpolka.ItemIndex]<>nil) then
-//  begin  //selected stock
-//    id:=Integer(cbSpolka.Items.Objects[cbSpolka.ItemIndex]);
-//    dm.OpenQuery(dm.qrySpolki, Q_STOCKSID, [id]);
-//  end
-//  else if cbGenType.ItemIndex=1 then
-//  begin  //all stocks
-//    dm.OpenQuery(dm.qrySpolki, Q_STOCKSALL);
-//  end
-//  else if cbGenType.ItemIndex in [2,3,4,5,6,7] then
-//  begin  //selected type
-//    case cbGenType.ItemIndex of
-//      2 : typ:=motGPWStock;
-//      3 : typ:=motGPWIndex;
-//      4 : typ:=motGPWIndexFuture;
-//      5 : typ:=motPLInvestmentFund;
-//      6 : typ:=motNBPCurrency;
-//      7 : typ:=motBossaFX;
-//    end;
-//    dm.OpenQuery(dm.qrySpolki, Q_STOCKSTYP, [ord(typ)]);
-//  end;
-  dm.OpenQuery(dm.qrySpolki, Q_STOCKTEST);  //test query
+  if (cbGenType.ItemIndex=0) and (cbSpolka.Items.Objects[cbSpolka.ItemIndex]<>nil) then
+  begin  //selected stock
+    id:=Integer(cbSpolka.Items.Objects[cbSpolka.ItemIndex]);
+    dm.OpenQuery(dm.qrySpolki, Q_STOCKSID, [id]);
+  end
+  else if cbGenType.ItemIndex=1 then
+  begin  //all stocks
+    dm.OpenQuery(dm.qrySpolki, Q_STOCKSALL);
+  end
+  else if cbGenType.ItemIndex in [2,3,4,5,6,7] then
+  begin  //selected type
+    case cbGenType.ItemIndex of
+      2 : typ:=motGPWStock;
+      3 : typ:=motGPWIndex;
+      4 : typ:=motGPWIndexFuture;
+      5 : typ:=motPLInvestmentFund;
+      6 : typ:=motNBPCurrency;
+      7 : typ:=motBossaFX;
+    end;
+    dm.OpenQuery(dm.qrySpolki, Q_STOCKSTYP, [ord(typ)]);
+  end;
+//  dm.OpenQuery(dm.qrySpolki, Q_STOCKTEST);  //test query
   //generate data for selected stocks
+  FDataGenerator.StartSession;
   dm.qrySpolki.First;
   while not dm.qrySpolki.Eof do
   begin
@@ -402,6 +398,7 @@ begin
     dm.qrySpolki.Next;
   end;
   dm.qrySpolki.Close;
+  FDataGenerator.StopSession;
 
   mmLogGen.Lines.Add('+++ Stop: '+formatdatetime('yyyy-mm-dd hh:nn:ss', now));
 end;
@@ -631,131 +628,6 @@ begin
   VDoBreak:=FBreakLoad;
 end;
 
-procedure TFormMain.GenTyg(idspolki, typ: integer);
-const
-  Q_QRY1 = 'select * from at_dzienne%d where fk_id_spolki=%d and ts>=''%s'' and ts<''%s'' order by ts';
-  Q_MAXTS = 'select max(ts) from at_tyg%d where fk_id_spolki=%d';
-  Q_MINTS = 'select min(ts) from at_dzienne%d where fk_id_spolki=%d';
-  Q_QRYDEL = 'delete from at_tyg%d where fk_id_spolki=%d and ts>=''%s''';
-  Q_INS = 'insert into at_tyg%d(fk_id_spolki, ts, open, high, low, close, volume) values(%d, ''%s'', %s, %s, %s, %s, %d)';
-var
-  dt, dtend : TDateTime;
-  i, cnt : integer;
-  o,h,l,c : double;
-  vol : integer;
-begin
-  dtend:=floor(now);
-  dm.OpenQuery(dm.qryTemp, format(Q_MAXTS,[typ, idspolki]));
-  dt:=dm.qryTemp.Fields[0].AsDateTime;
-  dm.qryTemp.Close;
-  if dt=0 then //generujemy dane od poczatku
-  begin
-    dm.OpenQuery(dm.qryTemp, format(Q_MINTS,[typ, idspolki]));
-    dt:=dm.qryTemp.Fields[0].AsDateTime;
-    dm.qryTemp.Close;
-    if dt=0 then
-    begin
-      MessageDlg('Nie ma danych dziennych dla spolki '+inttostr(idspolki), mtWarning, [mbOK], 0);
-      exit;
-    end;
-    i:=DayOfTheWeek(dt);
-    dt:=dt - (i-1); //poniedzialek pierwszego tygodnia
-  end
-  else        //generujemy od ostatniego wpisu - usuwajac dane z ostatniego wpisu i generujac je ponownie
-  begin
-    dm.ExecSql(format(Q_QRYDEL, [typ, idspolki, formatdatetime('yyyy-mm-dd', dt)]));
-  end;
-
-  while dt<dtend do
-  begin
-    o:=0; h:=0; l:=1000000; c:=0; vol:=0;
-    dm.OpenQuery(dm.qryTemp, format(Q_QRY1, [typ, idspolki, formatdatetime('yyyy-mm-dd',dt), formatdatetime('yyyy-mm-dd',dt+5)]));
-    if not dm.qryTemp.Eof then
-    begin
-      cnt:=1;
-      while not dm.qryTemp.Eof do
-      begin
-        if cnt=1 then o:=dm.qryTemp.fieldbyname('open').AsFloat;
-        c:=dm.qryTemp.fieldbyname('close').AsFloat;
-
-        if h<dm.qryTemp.fieldbyname('high').AsFloat then h:=dm.qryTemp.fieldbyname('high').AsFloat;
-        if l>dm.qryTemp.fieldbyname('low').AsFloat then l:=dm.qryTemp.fieldbyname('low').AsFloat;
-        vol:=vol + dm.qryTemp.fieldbyname('volume').AsInteger;
-
-        dm.qryTemp.Next;
-        inc(cnt);
-      end;
-
-      dm.ExecSql(format(Q_INS,[typ, idspolki, formatdatetime('yyyy-mm-dd',dt),
-        PrepareFloatVal(o), PrepareFloatVal(h), PrepareFloatVal(l), PrepareFloatVal(c), vol]));
-    end;
-    dt:=dt+7; //nast tydzien
-  end;
-  dm.qryTemp.Close;
-end;
-
-procedure TFormMain.GenMies(idspolki, typ: integer);
-const
-  Q_QRY1 = 'select * from at_dzienne%d where fk_id_spolki=%d and ts>=''%s'' and ts<''%s'' order by ts';
-  Q_MAXTS = 'select max(ts) from at_mies%d where fk_id_spolki=%d';
-  Q_MINTS = 'select min(ts) from at_dzienne%d where fk_id_spolki=%d';
-  Q_QRYDEL = 'delete from at_mies%d where fk_id_spolki=%d and ts>=''%s''';
-  Q_INS = 'insert into at_mies%d(fk_id_spolki, ts, open, high, low, close, volume) values(%d, ''%s'', %s, %s, %s, %s, %d)';
-var
-  dt, dtend : TDateTime;
-  i, cnt : integer;
-  o,h,l,c : double;
-  vol : integer;
-begin
-  dtend:=floor(now);
-  dm.OpenQuery(dm.qryTemp, format(Q_MAXTS,[typ, idspolki]));
-  dt:=dm.qryTemp.Fields[0].AsDateTime;
-  dm.qryTemp.Close;
-  if dt=0 then //generujemy dane od poczatku
-  begin
-    dm.OpenQuery(dm.qryTemp, format(Q_MINTS,[typ, idspolki]));
-    dt:=dm.qryTemp.Fields[0].AsDateTime;
-    dm.qryTemp.Close;
-    if dt=0 then
-    begin
-      MessageDlg('Nie ma danych dziennych dla spolki '+inttostr(idspolki), mtWarning, [mbOK], 0);
-      exit;
-    end;
-    dt:=dt - DayOfTheMonth(dt) + 1; //pierwszy dzien miesiaca
-  end
-  else        //generujemy od ostatniego wpisu - usuwajac dane z ostatniego wpisu i generujac je ponownie
-  begin
-    dm.ExecSql(format(Q_QRYDEL, [typ, idspolki, formatdatetime('yyyy-mm-dd', dt)]));
-  end;
-
-  while dt<dtend do
-  begin
-    o:=0; h:=0; l:=1000000; c:=0; vol:=0;
-    dm.OpenQuery(dm.qryTemp, format(Q_QRY1, [typ, idspolki, formatdatetime('yyyy-mm-dd',dt), formatdatetime('yyyy-mm-dd',IncMonth(dt,1))]));
-    if not dm.qryTemp.Eof then
-    begin
-      cnt:=1;
-      while not dm.qryTemp.Eof do
-      begin
-        if cnt=1 then o:=dm.qryTemp.fieldbyname('open').AsFloat;
-        c:=dm.qryTemp.fieldbyname('close').AsFloat;
-
-        if h<dm.qryTemp.fieldbyname('high').AsFloat then h:=dm.qryTemp.fieldbyname('high').AsFloat;
-        if l>dm.qryTemp.fieldbyname('low').AsFloat then l:=dm.qryTemp.fieldbyname('low').AsFloat;
-        vol:=vol + dm.qryTemp.fieldbyname('volume').AsInteger;
-
-        dm.qryTemp.Next;
-        inc(cnt);
-      end;
-
-      dm.ExecSql(format(Q_INS,[typ, idspolki, formatdatetime('yyyy-mm-dd',dt),
-        PrepareFloatVal(o), PrepareFloatVal(h), PrepareFloatVal(l), PrepareFloatVal(c), vol]));
-    end;
-    dt:=IncMonth(dt,1); //nast miesiac
-  end;
-  dm.qryTemp.Close;
-end;
-
 procedure TFormMain.GenMPDzienne(idspolki, typ: integer);
 const
   Q_STOCKINFO = 'select * from at_spolki where id=%d';
@@ -822,86 +694,6 @@ begin
     maxts:=maxts+1;
     inc(i);
   end;
-end;
-
-procedure TFormMain.GenIntraMin2(idspolki, typ, range: integer);
-const
-  Q_QRY1 = 'select count(*), min(low), max(high), sum(volume) from at_ciagle%d where fk_id_spolki=%d and ts>=''%s'' and ts<''%s''';
-  Q_QRY2 = 'select * from at_ciagle%d where fk_id_spolki=%d and ts>=''%s'' and ts<''%s'' order by ts asc limit 1';
-  Q_QRY3 = 'select * from at_ciagle%d where fk_id_spolki=%d and ts>=''%s'' and ts<''%s'' order by ts desc limit 1';
-
-  Q_MAXTS = 'select max(ts) from at_%s%d where fk_id_spolki=%d';
-  Q_MINTS = 'select min(ts) from at_ciagle%d where fk_id_spolki=%d';
-  Q_QRYDEL = 'delete from at_%s%d where fk_id_spolki=%d and ts>=''%s''';
-  Q_INS = 'insert into at_%s%d(fk_id_spolki, ts, open, high, low, close, volume) values(%d, ''%s'', %s, %s, %s, %s, %d)';
-var
-  tbl : string;
-  rangeadd, rangemul : double;
-  dt, dt2, dtend : TDateTime;
-  i, cnt : integer;
-  o,h,l,c : double;
-  vol : integer;
-begin
-  case range of //nazwa tabeli
-    1 : tbl:='intra1m';
-    2 : tbl:='intra2m';
-    3 : tbl:='intra3m';
-    4 : tbl:='intra4m';
-    5 : tbl:='intra5m';
-    10 : tbl:='intra10m';
-    15 : tbl:='intra15m';
-    20 : tbl:='intra20m';
-    30 : tbl:='intra30m';
-    60 : tbl:='intra60m';
-  end;
-
-  dtend:=ceil(now);
-  dm.OpenQuery(dm.qryTemp, format(Q_MAXTS,[tbl, typ, idspolki]));
-  dt:=dm.qryTemp.Fields[0].AsDateTime;
-  dm.qryTemp.Close;
-  if dt=0 then //generujemy dane od poczatku
-  begin
-    dm.OpenQuery(dm.qryTemp, format(Q_MINTS,[typ, idspolki]));
-    dt:=dm.qryTemp.Fields[0].AsDateTime;
-    dm.qryTemp.Close;
-    if dt=0 then
-    begin
-      MessageDlg('Nie ma danych ciaglych dla spolki '+inttostr(idspolki), mtWarning, [mbOK], 0);
-      exit;
-    end;
-  end
-  else        //generujemy od ostatniego wpisu - usuwajac dane z ostatniego dnia i generujac je ponownie
-  begin
-    dm.ExecSql(format(Q_QRYDEL, [tbl, typ, idspolki, formatdatetime('yyyy-mm-dd', dt)]));
-  end;
-  dt:=floor(dt);  //poczatek pierwszego dnia danych
-
-  i:=0;
-  while dt<dtend do
-  begin
-    lblGenProg.Caption:=formatdatetime('yyyy-mm-dd hh:nn', dt);
-    if (i and 63)>0 then application.ProcessMessages;
-    
-    dt2:=IncMinute(dt,range);
-    dm.OpenQuery(dm.qryTemp, format(Q_QRY1, [typ, idspolki, formatdatetime('yyyy-mm-dd hh:nn',dt), formatdatetime('yyyy-mm-dd hh:nn', dt2)]));
-    cnt:=dm.qryTemp.Fields[0].AsInteger;
-    l:=dm.qryTemp.Fields[1].AsFloat;
-    h:=dm.qryTemp.Fields[2].AsFloat;
-    vol:=dm.qryTemp.Fields[3].AsInteger;
-    if cnt>0 then //sa dane w tym zakresie
-    begin
-      dm.OpenQuery(dm.qryTemp, format(Q_QRY2, [typ, idspolki, formatdatetime('yyyy-mm-dd hh:nn',dt), formatdatetime('yyyy-mm-dd hh:nn',dt2)]));
-      o:=dm.qryTemp.FieldByName('open').AsFloat;
-      dm.OpenQuery(dm.qryTemp, format(Q_QRY3, [typ, idspolki, formatdatetime('yyyy-mm-dd hh:nn',dt), formatdatetime('yyyy-mm-dd hh:nn',dt2)]));
-      c:=dm.qryTemp.FieldByName('close').AsFloat;
-
-      dm.ExecSql(format(Q_INS,[tbl, typ, idspolki, formatdatetime('yyyy-mm-dd hh:nn',dt),
-        PrepareFloatVal(o), PrepareFloatVal(h), PrepareFloatVal(l), PrepareFloatVal(c), vol]));
-    end;
-    dt:=dt2;
-    inc(i);
-  end;
-  dm.qryTemp.Close;
 end;
 
 end.

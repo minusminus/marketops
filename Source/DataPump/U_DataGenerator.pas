@@ -3,7 +3,7 @@ unit U_DataGenerator;
 interface
 
 uses
-  U_Consts;
+  U_Consts, Classes;
 
 type
   //data generating progress
@@ -17,6 +17,9 @@ type
     FErrMsg: string;
     FOnGenerateFinished: TOnGenerateProgress;
     FOnGenerateProgress: TOnGenerateProgress;
+
+    //buffer fo session table check
+    FTblBuffer : TStringList;
 
     procedure ClearErr;
     //checks if table exists
@@ -47,6 +50,12 @@ type
     property OnGenerateProgress : TOnGenerateProgress read FOnGenerateProgress write FOnGenerateProgress;
     property OnGenerateFinished : TOnGenerateProgress read FOnGenerateFinished write FOnGenerateFinished;
 
+    constructor Create;
+    destructor Destroy; override;
+
+    //generation session start/stop
+    procedure StartSession;
+    procedure StopSession;
     //generates data of specified type for selected stock
     function GenerateData(AGenType : TMarketOpsDataGenType; ARange : integer; AStockType : TMarketOpsStockType; AStockID : integer) : boolean;
   end;
@@ -57,13 +66,28 @@ uses U_DM, SysUtils, Math, DateUtils, U_Utils, U_DataGeneratorProgressCalc;
 
 { TDataGenerator }
 
+constructor TDataGenerator.Create;
+begin
+  FTblBuffer:=TStringList.Create;
+  FTblBuffer.Sorted:=true;
+end;
+
+destructor TDataGenerator.Destroy;
+begin
+  FTblBuffer.Free;
+  inherited;
+end;
+
 function TDataGenerator.CheckTableExists(ATblName: string): boolean;
 const
   Q_CHK = 'select * from %s where 1=-1';
 begin
+  result:=(FTblBuffer.IndexOf(ATblName)>-1);  //check in buffer
+  if not result then
   try
     dm.OpenQuery(dm.qryTemp, Q_CHK, [ATblName]);
     dm.qryTemp.Close;
+    FTblBuffer.Add(ATblName); //add to buffer if table exists
     result:=true;
   except
     result:=false;
@@ -73,6 +97,16 @@ end;
 procedure TDataGenerator.ClearErr;
 begin
   FErrMsg:='';
+end;
+
+procedure TDataGenerator.StartSession;
+begin
+  FTblBuffer.Clear;
+end;
+
+procedure TDataGenerator.StopSession;
+begin
+
 end;
 
 procedure TDataGenerator.DeleteDataFromTS(ATblName: string; AStockID: integer;
@@ -130,7 +164,7 @@ function TDataGenerator.GetNextRangeTS(AGenType: TMarketOpsDataGenType;
   ARange: integer; ADT: TDateTime): TDateTime;
 
   //corrects floating point differences that adds resulting times like 01:59 instead of 02:00 
-  function CorrectDaySwitch(ATS1, ATS2 : TDateTime) : TDateTime;
+  function CorrectDayChange(ATS1, ATS2 : TDateTime) : TDateTime;
   var
     t1, t2 : TDateTime;
   begin
@@ -140,8 +174,8 @@ function TDataGenerator.GetNextRangeTS(AGenType: TMarketOpsDataGenType;
   end;
 begin
   case AGenType of
-    mogenMinute: result:=CorrectDaySwitch(ADT, IncMinute(ADT, ARange));
-    mogenHour: result:=CorrectDaySwitch(ADT, IncHour(ADT, ARange));
+    mogenMinute: result:=CorrectDayChange(ADT, IncMinute(ADT, ARange));
+    mogenHour: result:=CorrectDayChange(ADT, IncHour(ADT, ARange));
     mogenWeek: result:=IncWeek(ADT, ARange);
     mogenMonth: result:=IncMonth(ADT, ARange);
   end;
@@ -164,8 +198,12 @@ function TDataGenerator.IntGenerateData(AGenType: TMarketOpsDataGenType;
   AGenTbl: string) : boolean;
 const
   Q_DATA = 'select count(*), min(low), max(high), sum(volume) from %s where fk_id_spolki=%d and ts>=''%s'' and ts<''%s''';
-  Q_OPEN = 'select open from %s where fk_id_spolki=%d and ts>=''%s'' and ts<''%s'' order by ts asc limit 1';
-  Q_CLOSE = 'select close from %s where fk_id_spolki=%d and ts>=''%s'' and ts<''%s'' order by ts desc limit 1';
+//  Q_OPEN = 'select open from %s where fk_id_spolki=%d and ts>=''%s'' and ts<''%s'' order by ts asc limit 1';
+//  Q_CLOSE = 'select close from %s where fk_id_spolki=%d and ts>=''%s'' and ts<''%s'' order by ts desc limit 1';
+  Q_OPENCLOSE = 'select T1.open, T2.close '+
+                'from '+
+                '(select open from %s where fk_id_spolki=%d and ts>=''%s'' and ts<''%s'' order by ts asc limit 1) T1, '+
+                '(select close from %s where fk_id_spolki=%d and ts>=''%s'' and ts<''%s'' order by ts desc limit 1) T2';
   Q_INS = 'insert into %s(fk_id_spolki, ts, open, high, low, close, volume) values(%d, ''%s'', %s, %s, %s, %s, %d)';
 var
   dt2 : TDateTime;
@@ -204,10 +242,13 @@ begin
         vol:=dm.qryTemp.Fields[3].AsInteger;
         if cnt>0 then
         begin
-          dm.OpenQuery(dm.qryTemp, Q_OPEN, [ASrcTbl, AStockID, sdt1, sdt2]);
+//          dm.OpenQuery(dm.qryTemp, Q_OPEN, [ASrcTbl, AStockID, sdt1, sdt2]);
+//          o:=dm.qryTemp.Fields[0].AsFloat;
+//          dm.OpenQuery(dm.qryTemp, Q_CLOSE, [ASrcTbl, AStockID, sdt1, sdt2]);
+//          c:=dm.qryTemp.Fields[0].AsFloat;
+          dm.OpenQuery(dm.qryTemp, Q_OPENCLOSE, [ASrcTbl, AStockID, sdt1, sdt2, ASrcTbl, AStockID, sdt1, sdt2]);
           o:=dm.qryTemp.Fields[0].AsFloat;
-          dm.OpenQuery(dm.qryTemp, Q_CLOSE, [ASrcTbl, AStockID, sdt1, sdt2]);
-          c:=dm.qryTemp.Fields[0].AsFloat;
+          c:=dm.qryTemp.Fields[1].AsFloat;
 
           dm.ExecSql(Q_INS, [AGenTbl, AStockID, sdt1,
             PrepareFloatVal(o), PrepareFloatVal(h), PrepareFloatVal(l), PrepareFloatVal(c), vol]);
