@@ -44,6 +44,7 @@ type
 
     //generation of data
     function IntGenerateData(AGenType : TMarketOpsDataGenType; ARange : integer; AStockID : integer; ADTStart, ADTEnd : TDateTime; ASrcTbl, AGenTbl : string) : boolean;
+    procedure ProcessQueryBuf(AStockID : integer; ASrcTbl, AGenTbl : string; AQryBuf : TStringList);
   public
     property ErrMsg : string read FErrMsg;
 
@@ -62,7 +63,7 @@ type
 
 implementation
 
-uses U_DM, SysUtils, Math, DateUtils, U_Utils, U_DataGeneratorProgressCalc;
+uses U_DM, SysUtils, Math, DateUtils, U_Utils, U_DataGeneratorProgressCalc, DB;
 
 { TDataGenerator }
 
@@ -197,14 +198,8 @@ function TDataGenerator.IntGenerateData(AGenType: TMarketOpsDataGenType;
   ARange, AStockID: integer; ADTStart, ADTEnd: TDateTime; ASrcTbl,
   AGenTbl: string) : boolean;
 const
-  Q_DATA = 'select count(*), min(low), max(high), sum(volume) from %s where fk_id_spolki=%d and ts>=''%s'' and ts<''%s''';
-//  Q_OPEN = 'select open from %s where fk_id_spolki=%d and ts>=''%s'' and ts<''%s'' order by ts asc limit 1';
-//  Q_CLOSE = 'select close from %s where fk_id_spolki=%d and ts>=''%s'' and ts<''%s'' order by ts desc limit 1';
-  Q_OPENCLOSE = 'select T1.open, T2.close '+
-                'from '+
-                '(select open from %s where fk_id_spolki=%d and ts>=''%s'' and ts<''%s'' order by ts asc limit 1) T1, '+
-                '(select close from %s where fk_id_spolki=%d and ts>=''%s'' and ts<''%s'' order by ts desc limit 1) T2';
-  Q_INS = 'insert into %s(fk_id_spolki, ts, open, high, low, close, volume) values(%d, ''%s'', %s, %s, %s, %s, %d)';
+  C_DATAQUERYBATCHSIZE = 20;
+  Q_DATABUF = 'select ''%s'' as sdt1, ''%s'' as sdt2, count(*) as cnt, min(low) as l, max(high) as h, sum(volume) as v from %s where fk_id_spolki=%d and ts>=''%s'' and ts<''%s''';
 var
   dt2 : TDateTime;
   i, cnt : integer;
@@ -213,10 +208,12 @@ var
   sdt1, sdt2, dtformat : string;
   pcalc : TDataGeneratorProgressCalc;
   dobreak : boolean;
+  qrybuf : TStringList;
 begin
   result:=false;
   dobreak:=false;
   dtformat:=GetDTFormat(AGenType);
+  qrybuf:=TStringList.Create;
   pcalc:=TDataGeneratorProgressCalc.Create;
   try
     try
@@ -235,27 +232,16 @@ begin
         sdt1:=FormatDateTime(dtformat, ADTStart);
         sdt2:=FormatDateTime(dtformat, dt2);
 
-        dm.OpenQuery(dm.qryTemp, Q_DATA, [ASrcTbl, AStockID, sdt1, sdt2]);
-        cnt:=dm.qryTemp.Fields[0].AsInteger;
-        l:=dm.qryTemp.Fields[1].AsFloat;
-        h:=dm.qryTemp.Fields[2].AsFloat;
-        vol:=dm.qryTemp.Fields[3].AsInteger;
-        if cnt>0 then
+        qrybuf.Add( format(Q_DATABUF, [sdt1, sdt2, ASrcTbl, AStockID, sdt1, sdt2]) );
+        if qrybuf.Count = C_DATAQUERYBATCHSIZE then
         begin
-//          dm.OpenQuery(dm.qryTemp, Q_OPEN, [ASrcTbl, AStockID, sdt1, sdt2]);
-//          o:=dm.qryTemp.Fields[0].AsFloat;
-//          dm.OpenQuery(dm.qryTemp, Q_CLOSE, [ASrcTbl, AStockID, sdt1, sdt2]);
-//          c:=dm.qryTemp.Fields[0].AsFloat;
-          dm.OpenQuery(dm.qryTemp, Q_OPENCLOSE, [ASrcTbl, AStockID, sdt1, sdt2, ASrcTbl, AStockID, sdt1, sdt2]);
-          o:=dm.qryTemp.Fields[0].AsFloat;
-          c:=dm.qryTemp.Fields[1].AsFloat;
-
-          dm.ExecSql(Q_INS, [AGenTbl, AStockID, sdt1,
-            PrepareFloatVal(o), PrepareFloatVal(h), PrepareFloatVal(l), PrepareFloatVal(c), vol]);
+          ProcessQueryBuf(AStockID, ASrcTbl, AGenTbl, qrybuf);
+          qrybuf.Clear;
         end;
         ADTStart:=dt2;
         inc(i);
       end;
+      ProcessQueryBuf(AStockID, ASrcTbl, AGenTbl, qrybuf);
       if assigned(FOnGenerateFinished) then FOnGenerateFinished(formatdatetime(dtformat, ADTEnd), 0, false, dobreak);
       result:=true;
     except
@@ -265,7 +251,63 @@ begin
   finally
     dm.qryTemp.Close;
     pcalc.Free;
+    qrybuf.Free;
   end;
+end;
+
+procedure TDataGenerator.ProcessQueryBuf(AStockID: integer; ASrcTbl,
+  AGenTbl: string; AQryBuf: TStringList);
+const
+  C_DATAFIRST = '(%s)';
+  C_DATANEXT = #13#10'union'#13#10'(%s)';
+  C_DATAORDER = #13#10'order by sdt1';
+  Q_OPENCLOSE = 'select T1.open, T2.close '+
+                'from '+
+                '(select open from %s where fk_id_spolki=%d and ts>=''%s'' and ts<''%s'' order by ts asc limit 1) T1, '+
+                '(select close from %s where fk_id_spolki=%d and ts>=''%s'' and ts<''%s'' order by ts desc limit 1) T2';
+  Q_INS = 'insert into %s(fk_id_spolki, ts, open, high, low, close, volume) values(%d, ''%s'', %s, %s, %s, %s, %d)';
+var
+  i : integer;
+  qry : string;
+  fsdt1, fsdt2, fcnt, fl, fh, fv : TField;
+  cnt : integer;
+  o,h,l,c : double;
+  vol : integer;
+begin
+  if AQryBuf.Count=0 then exit;
+  //prepare union query
+  qry:=format(C_DATAFIRST, [AQryBuf[0]]);
+  for i := 1 to AQryBuf.Count - 1 do
+    qry:=qry + format(C_DATANEXT, [AQryBuf[i]]);
+  qry:=qry + C_DATAORDER;
+
+  dm.OpenQuery(dm.qryTemp, qry);
+  dm.qryTemp.First;
+  fsdt1:=dm.qryTemp.FieldByName('sdt1');
+  fsdt2:=dm.qryTemp.FieldByName('sdt2');
+  fcnt:=dm.qryTemp.FieldByName('cnt');
+  fl:=dm.qryTemp.FieldByName('l');
+  fh:=dm.qryTemp.FieldByName('h');
+  fv:=dm.qryTemp.FieldByName('v');
+  while not dm.qryTemp.Eof do
+  begin
+    cnt:=fcnt.AsInteger;
+    if cnt>0 then
+    begin
+      l:=fl.AsFloat;
+      h:=fh.AsFloat;
+      vol:=fv.AsInteger;
+      dm.OpenQuery(dm.qryTemp2, Q_OPENCLOSE, [ASrcTbl, AStockID, fsdt1.AsString, fsdt2.AsString, ASrcTbl, AStockID, fsdt1.AsString, fsdt2.AsString]);
+      o:=dm.qryTemp2.Fields[0].AsFloat;
+      c:=dm.qryTemp2.Fields[1].AsFloat;
+
+      dm.ExecSql(Q_INS, [AGenTbl, AStockID, fsdt1.AsString,
+        PrepareFloatVal(o), PrepareFloatVal(h), PrepareFloatVal(l), PrepareFloatVal(c), vol]);
+    end;
+    dm.qryTemp.Next;
+  end;
+  dm.qryTemp.Close;
+  dm.qryTemp2.Close;
 end;
 
 function TDataGenerator.PrepareGenEndTS(AGenType: TMarketOpsDataGenType;
