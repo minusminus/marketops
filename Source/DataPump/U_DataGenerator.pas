@@ -217,9 +217,7 @@ const
   Q_DATABUF = 'select ''%s'' as sdt1, ''%s'' as sdt2, count(*) as cnt, min(low) as l, max(high) as h, sum(volume) as v from %s where fk_id_spolki=%d and ts>=''%s'' and ts<''%s''';
 var
   dt2 : TDateTime;
-  i, cnt : integer;
-  o,h,l,c : double;
-  vol : integer;
+  i : integer;
   sdt1, sdt2, dtformat : string;
   pcalc : TDataGeneratorProgressCalc;
   dobreak : boolean;
@@ -273,45 +271,63 @@ end;
 procedure TDataGenerator.ProcessQueryBuf(AStockID: integer; ASrcTbl,
   AGenTbl: string; AQryBuf: TUnionQueryExecutor);
 const
-  Q_OPENCLOSE = 'select T1.open, T2.close '+
+  Q_OPENCLOSE = 'select ''%s'' sdt1, T1.open, T2.close '+
                 'from '+
                 '(select open from %s where fk_id_spolki=%d and ts>=''%s'' and ts<''%s'' order by ts asc limit 1) T1, '+
                 '(select close from %s where fk_id_spolki=%d and ts>=''%s'' and ts<''%s'' order by ts desc limit 1) T2';
   Q_INS = 'insert into %s(fk_id_spolki, ts, open, high, low, close, volume) values(%d, ''%s'', %s, %s, %s, %s, %d)';
 var
   i : integer;
-  qry : string;
-  fsdt1, fsdt2, fl, fh, fv : TField;
-  o,h,l,c : double;
-  vol : integer;
+  fsdt1, fsdt2, fl, fh, fv, fo, fc : TField;
+  databuf : array of TQueryBufRec;
+  sndqryexec : TUnionQueryExecutor;
 begin
   if AQryBuf.QueryCount=0 then exit;
-  AQryBuf.Execute(dm.qryTemp, 'cnt>0', 'sdt1'); //queries filtered for cnt>0 (data exists for selected period)
+  AQryBuf.Execute(dm.qryTemp, 'cnt>0', 'sdt1'); //queries filtered for cnt>0 (where data exists for selected period)
   if dm.qryTemp.Eof then exit;
-
-  FInsertExecutor.Clear;
-  dm.qryTemp.First;
-  fsdt1:=dm.qryTemp.FieldByName('sdt1');
-  fsdt2:=dm.qryTemp.FieldByName('sdt2');
-  fl:=dm.qryTemp.FieldByName('l');
-  fh:=dm.qryTemp.FieldByName('h');
-  fv:=dm.qryTemp.FieldByName('v');
-  while not dm.qryTemp.Eof do
-  begin
-    l:=fl.AsFloat;
-    h:=fh.AsFloat;
-    vol:=fv.AsInteger;
-    dm.OpenQuery(dm.qryTemp2, Q_OPENCLOSE, [ASrcTbl, AStockID, fsdt1.AsString, fsdt2.AsString, ASrcTbl, AStockID, fsdt1.AsString, fsdt2.AsString]);
-    o:=dm.qryTemp2.Fields[0].AsFloat;
-    c:=dm.qryTemp2.Fields[1].AsFloat;
-
-    FInsertExecutor.Add(Q_INS, [AGenTbl, AStockID, fsdt1.AsString,
-                        PrepareFloatVal(o), PrepareFloatVal(h), PrepareFloatVal(l), PrepareFloatVal(c), vol]);
-    dm.qryTemp.Next;
+  SetLength(databuf, dm.qryTemp.RecordCount);
+  sndqryexec:=TUnionQueryExecutor.Create;
+  try
+    FInsertExecutor.Clear;
+    //first loop - gather data and generate second query (for open and close prices)
+    i:=0;
+    dm.qryTemp.First;
+    fsdt1:=dm.qryTemp.FieldByName('sdt1');
+    fsdt2:=dm.qryTemp.FieldByName('sdt2');
+    fl:=dm.qryTemp.FieldByName('l');
+    fh:=dm.qryTemp.FieldByName('h');
+    fv:=dm.qryTemp.FieldByName('v');
+    while not dm.qryTemp.Eof do
+    begin
+      databuf[i].sdt1:=fsdt1.AsString;
+      databuf[i].sdt2:=fsdt2.AsString;
+      databuf[i].l:=fl.AsFloat;
+      databuf[i].h:=fh.AsFloat;
+      databuf[i].vol:=fv.AsInteger;
+      sndqryexec.Add(Q_OPENCLOSE, [fsdt1.AsString, ASrcTbl, AStockID, fsdt1.AsString, fsdt2.AsString, ASrcTbl, AStockID, fsdt1.AsString, fsdt2.AsString]);
+      inc(i);
+      dm.qryTemp.Next;
+    end;
+    //second loop - get open and close data for previous records
+    i:=0;
+    sndqryexec.Execute(dm.qryTemp, '', 'sdt1');
+    fo:=dm.qryTemp.Fields[1];
+    fc:=dm.qryTemp.Fields[2];
+    dm.qryTemp.First;
+    while not dm.qryTemp.Eof do
+    begin
+      FInsertExecutor.Add(Q_INS, [AGenTbl, AStockID, fsdt1.AsString,
+                          PrepareFloatVal(fo.AsFloat), PrepareFloatVal(databuf[i].h), PrepareFloatVal(databuf[i].l), PrepareFloatVal(fc.AsFloat), databuf[i].vol]);
+      inc(i);
+      dm.qryTemp.Next;
+    end;
+    dm.qryTemp.Close;
+    //execute inserts with generated data
+    FInsertExecutor.Execute(dm.DB);
+  finally
+    sndqryexec.Free;
+    SetLength(databuf, 0);
   end;
-  dm.qryTemp.Close;
-  dm.qryTemp2.Close;
-  FInsertExecutor.Execute(dm.DB);
 end;
 
 function TDataGenerator.PrepareGenEndTS(AGenType: TMarketOpsDataGenType;

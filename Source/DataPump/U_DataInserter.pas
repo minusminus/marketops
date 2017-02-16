@@ -276,8 +276,8 @@ const
           'group by fk_id_spolki '+
           ') t '+
           'where id=t.fk_id_spolki';
-var
-  i : integer;
+//var
+//  i : integer;
 begin
 //  for i := Ord(low(TMarketOpsStockType)) to Ord(high(TMarketOpsStockType)) do
 //    dm.ExecSql(Q_QRY, [i]);
