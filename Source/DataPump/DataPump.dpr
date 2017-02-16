@@ -14,7 +14,10 @@ uses
   U_DataInserterProgressCalc in 'U_DataInserterProgressCalc.pas',
   U_Utils in '..\Shared\U_Utils.pas',
   U_DataGenerator in 'U_DataGenerator.pas',
-  U_DataGeneratorProgressCalc in 'U_DataGeneratorProgressCalc.pas';
+  U_DataGeneratorProgressCalc in 'U_DataGeneratorProgressCalc.pas',
+  U_MultiQueryExecutor in '..\Shared\U_MultiQueryExecutor.pas',
+  U_NoReturnQueryExecutor in '..\Shared\U_NoReturnQueryExecutor.pas',
+  U_UnionQueryExecutor in '..\Shared\U_UnionQueryExecutor.pas';
 
 {$R *.res}
 

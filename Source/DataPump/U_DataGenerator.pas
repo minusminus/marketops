@@ -3,9 +3,16 @@ unit U_DataGenerator;
 interface
 
 uses
-  U_Consts, Classes;
+  U_Consts, Classes, U_NoReturnQueryExecutor, U_UnionQueryExecutor;
 
 type
+  //internal query buffer processing record
+  TQueryBufRec = record
+    sdt1, sdt2 : string;
+    o, h, l, c : double;
+    vol : integer;
+  end;
+
   //data generating progress
   TOnGenerateProgress = procedure(ACurrTS : string; ATimeExpectedToFinish : TDateTime; ALongEvent : boolean; var VDoBreak : boolean) of object;
 
@@ -20,6 +27,10 @@ type
 
     //buffer fo session table check
     FTblBuffer : TStringList;
+    //inserts executor
+    FInsertExecutor : TNoReturnQueryExecutor;
+    //union executor
+    FUnionExecutor : TUnionQueryExecutor;
 
     procedure ClearErr;
     //checks if table exists
@@ -44,7 +55,7 @@ type
 
     //generation of data
     function IntGenerateData(AGenType : TMarketOpsDataGenType; ARange : integer; AStockID : integer; ADTStart, ADTEnd : TDateTime; ASrcTbl, AGenTbl : string) : boolean;
-    procedure ProcessQueryBuf(AStockID : integer; ASrcTbl, AGenTbl : string; AQryBuf : TStringList);
+    procedure ProcessQueryBuf(AStockID : integer; ASrcTbl, AGenTbl : string; AQryBuf : TUnionQueryExecutor);
   public
     property ErrMsg : string read FErrMsg;
 
@@ -71,10 +82,14 @@ constructor TDataGenerator.Create;
 begin
   FTblBuffer:=TStringList.Create;
   FTblBuffer.Sorted:=true;
+  FInsertExecutor:=TNoReturnQueryExecutor.Create;
+  FUnionExecutor:=TUnionQueryExecutor.Create;
 end;
 
 destructor TDataGenerator.Destroy;
 begin
+  FUnionExecutor.Free;
+  FInsertExecutor.Free;
   FTblBuffer.Free;
   inherited;
 end;
@@ -208,15 +223,14 @@ var
   sdt1, sdt2, dtformat : string;
   pcalc : TDataGeneratorProgressCalc;
   dobreak : boolean;
-  qrybuf : TStringList;
 begin
   result:=false;
   dobreak:=false;
   dtformat:=GetDTFormat(AGenType);
-  qrybuf:=TStringList.Create;
   pcalc:=TDataGeneratorProgressCalc.Create;
   try
     try
+      FUnionExecutor.Clear;
       pcalc.Init(ADTStart, ADTEnd);
       i:=0;
       while ADTStart<ADTEnd do
@@ -232,16 +246,16 @@ begin
         sdt1:=FormatDateTime(dtformat, ADTStart);
         sdt2:=FormatDateTime(dtformat, dt2);
 
-        qrybuf.Add( format(Q_DATABUF, [sdt1, sdt2, ASrcTbl, AStockID, sdt1, sdt2]) );
-        if qrybuf.Count = C_DATAQUERYBATCHSIZE then
+        FUnionExecutor.Add( format(Q_DATABUF, [sdt1, sdt2, ASrcTbl, AStockID, sdt1, sdt2]) );
+        if FUnionExecutor.QueryCount = C_DATAQUERYBATCHSIZE then
         begin
-          ProcessQueryBuf(AStockID, ASrcTbl, AGenTbl, qrybuf);
-          qrybuf.Clear;
+          ProcessQueryBuf(AStockID, ASrcTbl, AGenTbl, FUnionExecutor);
+          FUnionExecutor.Clear;
         end;
         ADTStart:=dt2;
         inc(i);
       end;
-      ProcessQueryBuf(AStockID, ASrcTbl, AGenTbl, qrybuf);
+      ProcessQueryBuf(AStockID, ASrcTbl, AGenTbl, FUnionExecutor);
       if assigned(FOnGenerateFinished) then FOnGenerateFinished(formatdatetime(dtformat, ADTEnd), 0, false, dobreak);
       result:=true;
     except
@@ -251,16 +265,14 @@ begin
   finally
     dm.qryTemp.Close;
     pcalc.Free;
-    qrybuf.Free;
+    FUnionExecutor.Clear;
+    FInsertExecutor.Clear;
   end;
 end;
 
 procedure TDataGenerator.ProcessQueryBuf(AStockID: integer; ASrcTbl,
-  AGenTbl: string; AQryBuf: TStringList);
+  AGenTbl: string; AQryBuf: TUnionQueryExecutor);
 const
-  C_DATAFIRST = '(%s)';
-  C_DATANEXT = #13#10'union'#13#10'(%s)';
-  C_DATAORDER = #13#10'order by sdt1';
   Q_OPENCLOSE = 'select T1.open, T2.close '+
                 'from '+
                 '(select open from %s where fk_id_spolki=%d and ts>=''%s'' and ts<''%s'' order by ts asc limit 1) T1, '+
@@ -269,45 +281,37 @@ const
 var
   i : integer;
   qry : string;
-  fsdt1, fsdt2, fcnt, fl, fh, fv : TField;
-  cnt : integer;
+  fsdt1, fsdt2, fl, fh, fv : TField;
   o,h,l,c : double;
   vol : integer;
 begin
-  if AQryBuf.Count=0 then exit;
-  //prepare union query
-  qry:=format(C_DATAFIRST, [AQryBuf[0]]);
-  for i := 1 to AQryBuf.Count - 1 do
-    qry:=qry + format(C_DATANEXT, [AQryBuf[i]]);
-  qry:=qry + C_DATAORDER;
+  if AQryBuf.QueryCount=0 then exit;
+  AQryBuf.Execute(dm.qryTemp, 'cnt>0', 'sdt1'); //queries filtered for cnt>0 (data exists for selected period)
+  if dm.qryTemp.Eof then exit;
 
-  dm.OpenQuery(dm.qryTemp, qry);
+  FInsertExecutor.Clear;
   dm.qryTemp.First;
   fsdt1:=dm.qryTemp.FieldByName('sdt1');
   fsdt2:=dm.qryTemp.FieldByName('sdt2');
-  fcnt:=dm.qryTemp.FieldByName('cnt');
   fl:=dm.qryTemp.FieldByName('l');
   fh:=dm.qryTemp.FieldByName('h');
   fv:=dm.qryTemp.FieldByName('v');
   while not dm.qryTemp.Eof do
   begin
-    cnt:=fcnt.AsInteger;
-    if cnt>0 then
-    begin
-      l:=fl.AsFloat;
-      h:=fh.AsFloat;
-      vol:=fv.AsInteger;
-      dm.OpenQuery(dm.qryTemp2, Q_OPENCLOSE, [ASrcTbl, AStockID, fsdt1.AsString, fsdt2.AsString, ASrcTbl, AStockID, fsdt1.AsString, fsdt2.AsString]);
-      o:=dm.qryTemp2.Fields[0].AsFloat;
-      c:=dm.qryTemp2.Fields[1].AsFloat;
+    l:=fl.AsFloat;
+    h:=fh.AsFloat;
+    vol:=fv.AsInteger;
+    dm.OpenQuery(dm.qryTemp2, Q_OPENCLOSE, [ASrcTbl, AStockID, fsdt1.AsString, fsdt2.AsString, ASrcTbl, AStockID, fsdt1.AsString, fsdt2.AsString]);
+    o:=dm.qryTemp2.Fields[0].AsFloat;
+    c:=dm.qryTemp2.Fields[1].AsFloat;
 
-      dm.ExecSql(Q_INS, [AGenTbl, AStockID, fsdt1.AsString,
-        PrepareFloatVal(o), PrepareFloatVal(h), PrepareFloatVal(l), PrepareFloatVal(c), vol]);
-    end;
+    FInsertExecutor.Add(Q_INS, [AGenTbl, AStockID, fsdt1.AsString,
+                        PrepareFloatVal(o), PrepareFloatVal(h), PrepareFloatVal(l), PrepareFloatVal(c), vol]);
     dm.qryTemp.Next;
   end;
   dm.qryTemp.Close;
   dm.qryTemp2.Close;
+  FInsertExecutor.Execute(dm.DB);
 end;
 
 function TDataGenerator.PrepareGenEndTS(AGenType: TMarketOpsDataGenType;
