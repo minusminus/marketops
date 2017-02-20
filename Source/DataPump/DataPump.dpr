@@ -17,7 +17,8 @@ uses
   U_DataGeneratorProgressCalc in 'U_DataGeneratorProgressCalc.pas',
   U_MultiQueryExecutor in '..\Shared\U_MultiQueryExecutor.pas',
   U_NoReturnQueryExecutor in '..\Shared\U_NoReturnQueryExecutor.pas',
-  U_UnionQueryExecutor in '..\Shared\U_UnionQueryExecutor.pas';
+  U_UnionQueryExecutor in '..\Shared\U_UnionQueryExecutor.pas',
+  U_DataPumpConfig in 'U_DataPumpConfig.pas';
 
 {$R *.res}
 

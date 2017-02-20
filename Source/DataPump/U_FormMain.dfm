@@ -21,16 +21,12 @@ object FormMain: TFormMain
     Top = 0
     Width = 488
     Height = 334
-    ActivePage = tabPodzial
+    ActivePage = tabDL
     Align = alClient
     TabOrder = 0
     TabStop = False
     object tabDL: TTabSheet
       Caption = 'Pobieranie danych'
-      ExplicitLeft = 0
-      ExplicitTop = 0
-      ExplicitWidth = 0
-      ExplicitHeight = 0
       object Panel2: TPanel
         Left = 0
         Top = 0
@@ -70,7 +66,7 @@ object FormMain: TFormMain
           Width = 145
           Height = 21
           Style = csDropDownList
-          ItemHeight = 0
+          ItemHeight = 13
           ItemIndex = 0
           TabOrder = 3
           Text = 'Wszystkie'
@@ -290,10 +286,6 @@ object FormMain: TFormMain
     object tabMP: TTabSheet
       Caption = 'MarketProfile'
       ImageIndex = 2
-      ExplicitLeft = 0
-      ExplicitTop = 0
-      ExplicitWidth = 0
-      ExplicitHeight = 0
       object Panel5: TPanel
         Left = 0
         Top = 0
@@ -323,7 +315,7 @@ object FormMain: TFormMain
           Width = 185
           Height = 21
           Style = csDropDownList
-          ItemHeight = 0
+          ItemHeight = 13
           ItemIndex = 0
           TabOrder = 0
           Text = '30 min'
@@ -336,7 +328,7 @@ object FormMain: TFormMain
           Width = 185
           Height = 21
           Style = csDropDownList
-          ItemHeight = 0
+          ItemHeight = 13
           TabOrder = 1
         end
         object Button6: TButton
