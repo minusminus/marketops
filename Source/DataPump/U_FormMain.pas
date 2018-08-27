@@ -4,8 +4,9 @@ interface
 
 uses
   Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms,
-  Dialogs, StdCtrls, ExtCtrls, ComCtrls, ActnList, ZipMstr, u_bgndloaderthread,
-  U_FilesDownloader, U_DataInserter, U_DataGenerator, U_DataPumpConfig;
+  Dialogs, StdCtrls, ExtCtrls, ComCtrls, ActnList, 
+  U_FilesDownloader, U_DataInserter, U_DataGenerator, U_DataPumpConfig,
+  U_DailyDataProcessor;
 
 const
   MSG_AUTOMATICPROCESS = WM_APP + 1000;
@@ -57,6 +58,11 @@ type
     lblGenCzasDoKoncaPakietu: TLabel;
     Button5: TButton;
     actGenBreak: TAction;
+    gbIntra: TGroupBox;
+    gbDaily: TGroupBox;
+    actFromFileDzienne: TAction;
+    Button7: TButton;
+    odDzienneFromFile: TOpenDialog;
     procedure FormCreate(Sender: TObject);
     procedure actDLDzienneExecute(Sender: TObject);
     procedure actDLCiagleExecute(Sender: TObject);
@@ -65,15 +71,15 @@ type
     procedure FormDestroy(Sender: TObject);
     procedure actGenMPExecute(Sender: TObject);
     procedure actGenBreakExecute(Sender: TObject);
+    procedure actFromFileDzienneExecute(Sender: TObject);
   private
-    Zip: TZipMaster;
     FBreakLoad : boolean;
-    BgndLoaderThr : TBgndLoaderThread;
     FFilesDownloader : TFilesDownloader;
     FDataInserter : TDataInserter;
     FDataGenerator : TDataGenerator;
     FUnzipDir : string;
-    FDPConfig : TDataPumpConfig; 
+    FDPConfig : TDataPumpConfig;
+    FDailyDataProc : TDailyDataProcessor;
 
     procedure LoadSpolki;
 
@@ -86,7 +92,6 @@ type
     //downloads ticks data for current qrySpolki opened query
     procedure InternalDLCiagleCurrentSpolki;
 
-    procedure UpdateStanCaption(AMsg : string);
     //datainserter events
     procedure OnInsertProgress(ALinesRead : integer; ATimeExpectedToFinish : TDateTime; ALinesPerSec : double; ALongEvent : boolean; var VDoBreak : boolean);
     procedure OnInsertFinished(ALinesRead : integer; ATimeExpectedToFinish : TDateTime; ALinesPerSec : double; ALongEvent : boolean; var VDoBreak : boolean);
@@ -95,6 +100,8 @@ type
     procedure OnGenerateFinished(ACurrTS : string; ATimeExpectedToFinish : TDateTime; ALongEvent : boolean; var VDoBreak : boolean);
     //async download events
     procedure OnCheckDownloadBreak(var VBreakLoad : boolean);
+
+    function OnCheckBreakLoad : boolean;
   protected
     procedure MsgAutomaticProcess( var Msg : TMessage ); message MSG_AUTOMATICPROCESS;
   public
@@ -121,9 +128,11 @@ begin
   FDataGenerator.OnGenerateProgress:=OnGenerateProgress;
   FDataGenerator.OnGenerateFinished:=OnGenerateFinished;
   FUnzipDir:=NormalDir(ExtractFilePath(ParamStr(0)))+'ATunzip\';
+  ForceDirectories(FUnzipDir);
   FDPConfig:=TDataPumpConfig.Create;
+  FDailyDataProc:=TDailyDataProcessor.Create(FUnzipDir, FDataInserter, FFilesDownloader, FDPConfig, mmUpdateLog.Lines, lblLPStan, lblLPSpolka);
+  FDailyDataProc.OnCheckBreakLoad:=OnCheckBreakLoad;
 
-  Zip:=TZipMaster.Create(nil);
   caption:=application.Title;
   pgcMain.ActivePageIndex:=0;
   LoadSpolki;
@@ -134,7 +143,7 @@ end;
 
 procedure TFormMain.FormDestroy(Sender: TObject);
 begin
-  Zip.Free;
+  FDailyDataProc.Free;
   FDPConfig.Free;
   FDataGenerator.Free;
   FDataInserter.Free;
@@ -142,84 +151,18 @@ begin
 end;
 
 procedure TFormMain.actDLDzienneExecute(Sender: TObject);
-const
-  Q_SPOLKI012 = 'select * from at_spolki where typ in (0,1,2) order by typ, id';
-//  Q_SPOLKI012 = 'select * from at_spolki where typ in (0,1,2) and id=288 order by typ, id';
-  Q_SPOLKI4 = 'select * from at_spolki where typ=4 order by typ, id';
-  Q_SPOLKI5 = 'select * from at_spolki where typ=5 order by typ, id';
-  Q_SPOLKI6 = 'select * from at_spolki where typ=6 order by typ, id';
-var
-  typ : integer;
-
-  procedure GetDzienneData( stocktype : TMarketOpsStockType; query : string );
-  var
-    datafn : string;
-  begin
-    UpdateStanCaption('Pobieranie...');
-    FFilesDownloader.DownloadAndUnzip(FDPConfig.GetDLDziennePath(stocktype), FDPConfig.GetDLDzienneFileName(stocktype), FUnzipDir);
-
-    UpdateStanCaption('Przetwarzanie...');
-    dm.OpenQuery(dm.qrySpolki, query);
-    dm.qrySpolki.First;
-    while (not dm.qrySpolki.Eof) and (not FBreakLoad) do
-    begin
-      Application.ProcessMessages;
-      if dm.qrySpolki.fieldbyname('aktywna').asinteger=1 then
-      begin
-        datafn:=FUnzipDir + dm.qrySpolki.fieldbyname('nazwaakcji2').AsString + '.mst';
-        lblLPSpolka.Caption:=format('(%d/%d) %s [%d]', [dm.qrySpolki.RecNo, dm.qrySpolki.RecordCount, dm.qrySpolki.fieldbyname('nazwaspolki').AsString, dm.qrySpolki.fieldbyname('id').AsInteger]);
-        FDataInserter.InsertData(modataDaily, TMarketOpsStockType(dm.qrySpolki.fieldbyname('typ').AsInteger), dm.qrySpolki.fieldbyname('id').AsInteger, datafn);
-      end;
-      dm.qrySpolki.Next;
-    end;
-    dm.qrySpolki.Close;
-    ClearDir(FUnzipDir, false); //czyscimy katalog downloadu
-    UpdateStanCaption('');
-  end;
 begin
   lblLPPostep.Caption:=''; lblLPCzasDoKoncaPakietu.Caption:='';
-  lblLPSpolka.Caption:=''; lblLPStan.Caption:='';
-  mmUpdateLog.Clear;
-  mmUpdateLog.Lines.Add('+++ Start: '+formatdatetime('yyyy-mm-dd hh:nn:ss', now));
-  FBreakLoad:=false;
-  Application.ProcessMessages;
-
-  ForceDirectories(FUnzipDir);
-  typ:=cbDaneDzienne.ItemIndex;
-    //dane dzienne typ 0,1,2
-  if (typ in [0,1]) and (not FBreakLoad) then
-  begin
-    mmUpdateLog.Lines.Add('+++ typ 0,1,2');
-    GetDzienneData(motGPWStock, Q_SPOLKI012);
-  end;
-    //dane dzienne typ 4 (fio)
-  if (typ in [0,2]) and (not FBreakLoad) then
-  begin
-    mmUpdateLog.Lines.Add('+++ typ 4');
-    GetDzienneData(motPLInvestmentFund, Q_SPOLKI4);
-  end;
-    //dane dzienne typ 5 (waluty nbp)
-  if (typ in [0,3]) and (not FBreakLoad) then
-  begin
-    mmUpdateLog.Lines.Add('+++ typ 5');
-    GetDzienneData(motNBPCurrency, Q_SPOLKI5);
-  end;
-    //dane dzienne typ 6 (fx)
-  if (typ in [0,4]) and (not FBreakLoad) then
-  begin
-    mmUpdateLog.Lines.Add('+++ typ 6');
-    GetDzienneData(motBossaFX, Q_SPOLKI6);
-  end;
-
-  FDataInserter.UpdateAllStartTS;
-  mmUpdateLog.Lines.Add('+++ Stop: '+formatdatetime('yyyy-mm-dd hh:nn:ss', now));
+  FDailyDataProc.Download(cbDaneDzienne.ItemIndex);
   MessageDlg('Pobieranie danych dziennych zakoñczone', mtInformation, [mbOK], 0);
 end;
 
-procedure TFormMain.UpdateStanCaption(AMsg: string);
+procedure TFormMain.actFromFileDzienneExecute(Sender: TObject);
 begin
-  lblLPStan.Caption:=AMsg;
-  Application.ProcessMessages;
+  lblLPPostep.Caption:=''; lblLPCzasDoKoncaPakietu.Caption:='';
+  if not odDzienneFromFile.Execute(Handle) then exit;
+  FDailyDataProc.FromFile(cbDaneDzienne.ItemIndex, odDzienneFromFile.FileName);
+  MessageDlg('Pobieranie danych dziennych zakoñczone', mtInformation, [mbOK], 0);
 end;
 
 procedure TFormMain.actDLCiagleExecute(Sender: TObject);
@@ -469,6 +412,11 @@ procedure TFormMain.MsgAutomaticProcess(var Msg: TMessage);
 begin
   Application.ProcessMessages;
   AutomaticProcess;
+end;
+
+function TFormMain.OnCheckBreakLoad: boolean;
+begin
+  result:=FBreakLoad;
 end;
 
 procedure TFormMain.OnCheckDownloadBreak(var VBreakLoad: boolean);

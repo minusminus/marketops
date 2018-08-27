@@ -13,5 +13,6 @@
     <Transaction>2017-02-16 11:37:34.434.pas,H:\MarketOps_github\initversion\Source\DataPump\Unit1.pas=H:\MarketOps_github\initversion\Source\Shared\U_MultiQueryExecutor.pas</Transaction>
     <Transaction>2017-02-16 11:38:57.126.pas,H:\MarketOps_github\initversion\Source\DataPump\Unit1.pas=H:\MarketOps_github\initversion\Source\Shared\U_NoReturnQueryExecutor.pas</Transaction>
     <Transaction>2017-02-16 11:57:51.629.pas,H:\MarketOps_github\initversion\Source\DataPump\Unit1.pas=H:\MarketOps_github\initversion\Source\Shared\U_UnionQueryExecutor.pas</Transaction>
+    <Transaction>2018-08-27 12:31:43.341.pas,H:\MarketOps_github\initversion\Source\DataPump\Unit1.pas=H:\MarketOps_github\initversion\Source\DataPump\U_DzienneDataProcessor.pas</Transaction>
   </Transactions>
 </BorlandProject>

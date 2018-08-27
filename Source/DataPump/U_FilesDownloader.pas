@@ -15,7 +15,6 @@ type
     FOnCheckDownloadBreak: TOnCheckDownloadBreak;
 
     procedure TerminateAndFreeBgndLoaderThread;
-    function PrepareZIPFile(AZIPFN, ADestPath : string) : boolean;
     procedure ClearDLAsyncObjs;
     procedure OnBgndDownloadedFile(AAsyncFileID : integer);
   public
@@ -30,6 +29,7 @@ type
       ADestPath - destination folder, where file will be downloaded and unzipped
     }
     function DownloadAndUnzip(AURLPath, AFileName, ADestPath : string) : boolean;
+    function PrepareZIPFile(AZIPFN, ADestPath : string) : boolean;
 
     //async downaloading
     procedure DownloadAsync(AURLPath, AFileName, ADestPath : string);

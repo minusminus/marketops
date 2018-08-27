@@ -18,7 +18,8 @@ uses
   U_MultiQueryExecutor in '..\Shared\U_MultiQueryExecutor.pas',
   U_NoReturnQueryExecutor in '..\Shared\U_NoReturnQueryExecutor.pas',
   U_UnionQueryExecutor in '..\Shared\U_UnionQueryExecutor.pas',
-  U_DataPumpConfig in 'U_DataPumpConfig.pas';
+  U_DataPumpConfig in 'U_DataPumpConfig.pas',
+  U_DzienneDataProcessor in 'U_DzienneDataProcessor.pas';
 
 {$R *.res}
 

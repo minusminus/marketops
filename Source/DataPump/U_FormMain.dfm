@@ -2,7 +2,7 @@ object FormMain: TFormMain
   Left = 289
   Top = 105
   Caption = 'FormMain'
-  ClientHeight = 334
+  ClientHeight = 460
   ClientWidth = 488
   Color = clBtnFace
   Font.Charset = DEFAULT_CHARSET
@@ -20,72 +20,100 @@ object FormMain: TFormMain
     Left = 0
     Top = 0
     Width = 488
-    Height = 334
+    Height = 460
     ActivePage = tabDL
     Align = alClient
     TabOrder = 0
     TabStop = False
+    ExplicitHeight = 334
     object tabDL: TTabSheet
       Caption = 'Pobieranie danych'
+      ExplicitHeight = 306
       object Panel2: TPanel
         Left = 0
         Top = 0
         Width = 480
-        Height = 83
+        Height = 161
         Align = alTop
         BevelInner = bvRaised
         BevelOuter = bvLowered
         TabOrder = 0
-        object Button1: TButton
-          Left = 8
-          Top = 8
-          Width = 137
-          Height = 25
-          Action = actDLCiagle
-          TabOrder = 0
-        end
-        object Button2: TButton
-          Left = 8
-          Top = 50
-          Width = 137
-          Height = 25
-          Action = actDLDzienne
-          TabOrder = 1
-        end
         object Button3: TButton
-          Left = 168
-          Top = 8
+          Left = 344
+          Top = 69
           Width = 121
           Height = 25
           Action = actDLBreak
           TabOrder = 2
         end
-        object cbDaneDzienne: TComboBox
-          Left = 168
-          Top = 50
-          Width = 145
-          Height = 21
-          Style = csDropDownList
-          ItemHeight = 13
-          ItemIndex = 0
-          TabOrder = 3
-          Text = 'Wszystkie'
-          Items.Strings = (
-            'Wszystkie'
-            'Tylko 0,1,2 (spolki, indeksy, kontrakty)'
-            'Tylko 4 (fundusze)'
-            'Tylko 5 (waluty NBP)'
-            'Tylko 6 (forex)')
+        object gbIntra: TGroupBox
+          Left = 8
+          Top = 8
+          Width = 321
+          Height = 49
+          Caption = 'Dane intra'
+          TabOrder = 0
+          object Button1: TButton
+            Left = 17
+            Top = 16
+            Width = 137
+            Height = 25
+            Action = actDLCiagle
+            TabOrder = 0
+          end
+        end
+        object gbDaily: TGroupBox
+          Left = 8
+          Top = 63
+          Width = 321
+          Height = 90
+          Caption = 'Dane dzienne'
+          TabOrder = 1
+          object Button2: TButton
+            Left = 17
+            Top = 25
+            Width = 137
+            Height = 25
+            Action = actDLDzienne
+            TabOrder = 0
+          end
+          object cbDaneDzienne: TComboBox
+            Left = 176
+            Top = 25
+            Width = 129
+            Height = 21
+            Style = csDropDownList
+            ItemHeight = 13
+            ItemIndex = 0
+            TabOrder = 1
+            Text = 'Wszystkie'
+            Items.Strings = (
+              'Wszystkie'
+              'Tylko 0,1,2 (spolki, indeksy, kontrakty)'
+              'Tylko 4 (fundusze)'
+              'Tylko 5 (waluty NBP)'
+              'Tylko 6 (forex)')
+          end
+          object Button7: TButton
+            Left = 17
+            Top = 56
+            Width = 137
+            Height = 25
+            Action = actFromFileDzienne
+            TabOrder = 2
+          end
         end
       end
       object Panel1: TPanel
         Left = 0
-        Top = 83
+        Top = 161
         Width = 480
-        Height = 223
+        Height = 271
         Align = alClient
         BevelOuter = bvNone
         TabOrder = 1
+        ExplicitTop = 83
+        ExplicitHeight = 223
         object Label1: TLabel
           Left = 8
           Top = 8
@@ -133,17 +161,19 @@ object FormMain: TFormMain
           Left = 0
           Top = 50
           Width = 480
-          Height = 173
+          Height = 221
           Align = alBottom
           Anchors = [akLeft, akTop, akRight, akBottom]
           ScrollBars = ssBoth
           TabOrder = 0
+          ExplicitHeight = 173
         end
       end
     end
     object tabPodzial: TTabSheet
       Caption = 'Generowanie danych intra i week+'
       ImageIndex = 1
+      ExplicitHeight = 306
       object Panel3: TPanel
         Left = 0
         Top = 0
@@ -267,25 +297,28 @@ object FormMain: TFormMain
         Left = 0
         Top = 145
         Width = 480
-        Height = 161
+        Height = 287
         Align = alClient
         BevelOuter = bvNone
         Caption = 'Panel4'
         TabOrder = 1
+        ExplicitHeight = 161
         object mmLogGen: TMemo
           Left = 0
           Top = 0
           Width = 480
-          Height = 161
+          Height = 287
           Align = alClient
           ScrollBars = ssBoth
           TabOrder = 0
+          ExplicitHeight = 161
         end
       end
     end
     object tabMP: TTabSheet
       Caption = 'MarketProfile'
       ImageIndex = 2
+      ExplicitHeight = 306
       object Panel5: TPanel
         Left = 0
         Top = 0
@@ -344,23 +377,28 @@ object FormMain: TFormMain
         Left = 0
         Top = 113
         Width = 480
-        Height = 193
+        Height = 319
         Align = alClient
         ScrollBars = ssBoth
         TabOrder = 1
+        ExplicitHeight = 193
       end
     end
   end
   object alMain: TActionList
     Left = 12
-    Top = 216
+    Top = 248
     object actDLCiagle: TAction
-      Caption = 'Dane intra'
+      Caption = 'Pobierz'
       OnExecute = actDLCiagleExecute
     end
     object actDLDzienne: TAction
-      Caption = 'Dane dzienne'
+      Caption = 'Pobierz'
       OnExecute = actDLDzienneExecute
+    end
+    object actFromFileDzienne: TAction
+      Caption = 'Z pliku'
+      OnExecute = actFromFileDzienneExecute
     end
     object actDLBreak: TAction
       Caption = 'Przerwij pobieranie'
@@ -378,5 +416,12 @@ object FormMain: TFormMain
       Caption = 'Przerwij generowanie'
       OnExecute = actGenBreakExecute
     end
+  end
+  object odDzienneFromFile: TOpenDialog
+    DefaultExt = '.zip'
+    Filter = 'Pliki ZIP (*.zip)|*.zip'
+    Options = [ofHideReadOnly, ofPathMustExist, ofFileMustExist, ofEnableSizing]
+    Left = 48
+    Top = 248
   end
 end
